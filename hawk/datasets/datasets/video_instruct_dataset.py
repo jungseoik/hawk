@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
 import copy
 from hawk.processors import transforms_video,AlproVideoTrainProcessor
 from torchvision import transforms
-from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion
+from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background
 from hawk.conversation.conversation_video import Conversation,SeparatorStyle
 import numpy as np
 
@@ -164,11 +164,20 @@ class Video_Instruct_Dataset(BaseDataset):
                     width=self.resize_size,
                     sampling ="uniform", return_msg = True
                 )
-                
+                #读入背景视频
+                video_background, msg_background = load_video_background(
+                    video_path=video_path,
+                    n_frms=self.num_frm,
+                    height=self.resize_size,
+                    width=self.resize_size,
+                    sampling ="uniform", return_msg = True
+                )
+
                 random_seed = random.randint(0, 2**32 - 1)
                 setup_seed(random_seed)
                 video = self.transform(video)
                 video_motion = self.transform(video_motion)
+                video_background = self.transform(video_background)
                 
                 if 'cn' in self.data_type:
                     msg = ""
@@ -192,6 +201,7 @@ class Video_Instruct_Dataset(BaseDataset):
                 # image exist in the data
                 data_dict['image'] = video
                 data_dict['image_motion'] = video_motion
+                data_dict['image_background'] = video_background
             except:
                 print(f"Failed to load examples with video: {video_path}. "
                             f"Will randomly sample an example as a replacement.")
@@ -204,6 +214,7 @@ class Video_Instruct_Dataset(BaseDataset):
         return {
             "image": video,
             "image_motion": video_motion,
+            "image_background": video_background,
             "text_input": data_dict["input_ids"],
             "labels": data_dict["labels"],
             "type":'video',
@@ -242,6 +253,13 @@ class Video_Instruct_Dataset(BaseDataset):
             else:
                 batch['images_motion'] = images_motion
 
+        if 'image_background' in instances[0]:
+            images_background = [instance['image_background'] for instance in instances]
+            if all(x is not None and x.shape == images_background[0].shape for x in images_background):
+                batch['images_background'] = torch.stack(images_background)
+            else:
+                batch['images_background'] = images_background
+
         batch['conv_type'] = 'multi'
         return batch
 
@@ -272,7 +290,7 @@ def preprocess_multimodal(
     # 将conversational list中
     is_multimodal = True
     # image_token_len = multimodal_cfg['image_token_len']
-    image_token_len = cur_token_len * 2
+    image_token_len = cur_token_len * 3  # appearance + motion + background
     conversation_list[0]["q"] = "<Video>"+DEFAULT_IMAGE_PATCH_TOKEN * image_token_len +"</Video> " + msg + conversation_list[0]["q"]
     return [conversation_list]
 
