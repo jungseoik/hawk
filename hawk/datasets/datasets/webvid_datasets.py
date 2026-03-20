@@ -36,12 +36,26 @@ def extract_actions_and_entities_sentence(sentence):
         if token.pos_ == "VERB":
             subjects = ' and '.join(child.text for child in token.children if child.dep_ in ["nsubj", "nsubjpass"]) #主语
             objects = ' and '.join(child.text for child in token.children if child.dep_ in ["dobj", "pobj", "obj"]) #宾语
-            
+
             # 构建包含动作和实体的句子
             action_sentence = f"{subjects} {token.text} {objects}".strip()
             action_sentences.append(action_sentence)
 
     return ', '.join(action_sentences)
+
+def extract_background_entities_sentence(sentence):
+    """提取背景/场景相关的名词和形容词（非动词相关的静态描述）"""
+    doc = nlp(sentence)
+    background_tokens = []
+
+    for token in doc:
+        # 提取名词（场景、地点、物体）和形容词（场景描述）
+        if token.pos_ in ["NOUN", "PROPN"] and token.dep_ not in ["nsubj", "nsubjpass", "dobj"]:
+            background_tokens.append(token.text)
+        elif token.pos_ == "ADJ":
+            background_tokens.append(token.text)
+
+    return ', '.join(background_tokens) if background_tokens else sentence
 
 class WebvidDataset(BaseDataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_root):
@@ -99,6 +113,7 @@ class WebvidDataset(BaseDataset):
             if 'name' in sample_dict.keys():
                 text = sample_dict['name'].strip()
                 text_motion = extract_actions_and_entities_sentence(text)
+                text_background = extract_background_entities_sentence(text)
             else:
                 raise NotImplementedError("Un-supported text annotation format.")
             
@@ -106,7 +121,7 @@ class WebvidDataset(BaseDataset):
             try:
                 random_seed = random.randint(0, 2**32 - 1)
                 setup_seed(random_seed)
-                video, video_motion = self.vis_processor(video_path)
+                video, video_motion, video_background = self.vis_processor(video_path)
             except:
                 print(f"for A Failed to load examples with video: {video_path}. "
                             f"Will randomly sample an example as a replacement.")
@@ -116,6 +131,7 @@ class WebvidDataset(BaseDataset):
             # text = extract_actions_and_entities_sentence(text)
             caption = self.text_processor(text)
             caption_motion = self.text_processor(text_motion)
+            caption_background = self.text_processor(text_background)
 
             # print(video.size())
             if video is None or caption is None or video.size()!=torch.Size([3,self.vis_processor.n_frms,224,224]):
@@ -125,14 +141,16 @@ class WebvidDataset(BaseDataset):
                 continue
             else:
                 break
-        else:  
+        else:
             raise RuntimeError(f"Failed to fetch video after {num_retries} retries.")
         # "image_id" is kept to stay compatible with the COCO evaluation format
         return {
             "image": video, #torch.Size([3, 32, 224, 224])
             "image_motion": video_motion, #torch.Size([3, 32, 224, 224])
+            "image_background": video_background, #torch.Size([3, 32, 224, 224])
             "text_input": caption,
             "text_input_motion": caption_motion,
+            "text_input_background": caption_background,
             "type":'video',
         }
 

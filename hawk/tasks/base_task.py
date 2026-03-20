@@ -201,6 +201,8 @@ class BaseTask:
         metric_logger.add_meter("oriloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
         metric_logger.add_meter("middleloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
         metric_logger.add_meter("motionloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
+        metric_logger.add_meter("backgroundloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
+        metric_logger.add_meter("middleloss_bg", SmoothedValue(window_size=1, fmt="{value:.7f}"))
 
         # if iter-based runner, schedule lr based on inner epoch.
         logging.info(
@@ -243,11 +245,16 @@ class BaseTask:
 
             middle_result = loss_dict["middle_result"].view(1, -1)
             middle_result_motion = loss_dict["middle_result_motion"].view(1, -1)
-            
+            middle_result_background = loss_dict["middle_result_background"].view(1, -1)
+
             mse_loss = F.cosine_similarity(middle_result, middle_result_motion)
             mse_loss = 1 - mse_loss
-            
-            loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * mse_loss
+
+            # background should be dissimilar from motion (they are complementary)
+            mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
+            mse_loss_bg = 1 - mse_loss_bg
+
+            loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * loss_dict["loss_background"] + 0.1 * mse_loss + 0.1 * mse_loss_bg
 
             # after_train_step()
             if use_amp:
@@ -269,18 +276,24 @@ class BaseTask:
             metric_logger.update(oriloss=loss_dict["loss"].item())
             metric_logger.update(middleloss=mse_loss.item())
             metric_logger.update(motionloss=loss_dict["loss_motion"].item())
+            metric_logger.update(backgroundloss=loss_dict["loss_background"].item())
+            metric_logger.update(middleloss_bg=mse_loss_bg.item())
 
             total_loss = loss.item()
             lr = optimizer.param_groups[0]["lr"]
             ori_loss = loss_dict["loss"].item()
             middle_loss = mse_loss.item()
             motion_loss = loss_dict["loss_motion"].item()
-            
+            background_loss = loss_dict["loss_background"].item()
+            middle_loss_bg = mse_loss_bg.item()
+
             writer.add_scalar('Loss/total', total_loss, self.all_iter)
             writer.add_scalar('Learning Rate', lr, self.all_iter)
             writer.add_scalar('Loss/ori', ori_loss, self.all_iter)
             writer.add_scalar('Loss/middle', middle_loss, self.all_iter)
             writer.add_scalar('Loss/motion', motion_loss, self.all_iter)
+            writer.add_scalar('Loss/background', background_loss, self.all_iter)
+            writer.add_scalar('Loss/middle_bg', middle_loss_bg, self.all_iter)
             self.all_iter = self.all_iter + 1
 
         # after train_epoch()
