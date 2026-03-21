@@ -121,6 +121,22 @@ class VideoLLAMA(Blip2Base):
             logging.info("freeze vision encoder")
         logging.info('Loading VIT motion Done')
 
+        logging.info('Loading VIT background')
+        self.visual_encoder_background, self.ln_vision_background = self.init_vision_encoder(
+            vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision
+        )
+        if freeze_vit:
+            for name, param in self.visual_encoder_background.named_parameters():
+                param.requires_grad = False
+            self.visual_encoder_background = self.visual_encoder_background.eval()
+            self.visual_encoder_background.train = disabled_train
+            for name, param in self.ln_vision_background.named_parameters():
+                param.requires_grad = False
+            self.ln_vision_background = self.ln_vision_background.eval()
+            self.ln_vision_background.train = disabled_train
+            logging.info("freeze vision encoder background")
+        logging.info('Loading VIT background Done')
+
         logging.info('Loading Q-Former')
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features
@@ -162,6 +178,27 @@ class VideoLLAMA(Blip2Base):
             self.query_tokens.requires_grad = False
             logging.info("freeze Qformer")
         logging.info('Loading Q-Former Motion Done')
+
+        logging.info('Loading Q-Former Background')
+        self.Qformer_background, self.query_tokens_background = self.init_Qformer(
+            num_query_token, self.visual_encoder.num_features
+        )
+        self.Qformer_background.cls = None
+        self.Qformer_background.bert.embeddings.word_embeddings = None
+        self.Qformer_background.bert.embeddings.position_embeddings = None
+        for layer in self.Qformer_background.bert.encoder.layer:
+            layer.output = None
+            layer.intermediate = None
+        self.load_from_pretrained(url_or_filename=q_former_model)
+
+        if freeze_qformer:
+            for name, param in self.Qformer_background.named_parameters():
+                param.requires_grad = False
+            self.Qformer_background = self.Qformer_background.eval()
+            self.Qformer_background.train = disabled_train
+            self.query_tokens_background.requires_grad = False
+            logging.info("freeze Qformer background")
+        logging.info('Loading Q-Former Background Done')
 
         logging.info('Loading LLAMA Tokenizer')
         self.llama_tokenizer = LlamaTokenizer.from_pretrained(llama_model, use_fast=False)
@@ -247,7 +284,27 @@ class VideoLLAMA(Blip2Base):
             logging.info('LLAMA proj motion is not frozen')
 
         logging.info('Loading LLAMA proj motion Done')
-        
+
+        logging.info('Loading LLAMA proj background')
+        self.llama_proj_background_0 = nn.Linear(
+            self.Qformer.config.hidden_size, self.llama_model.config.hidden_size
+        )
+        self.llama_proj_background_last = Projection(self.llama_model)
+
+        if freeze_projection:
+            for name, param in self.llama_proj_background_0.named_parameters():
+                param.requires_grad = False
+            for name, param in self.llama_proj_background_last.named_parameters():
+                param.requires_grad = False
+            logging.info('LLAMA proj background is frozen')
+        else:
+            for name, param in self.llama_proj_background_0.named_parameters():
+                param.requires_grad = True
+            for name, param in self.llama_proj_background_last.named_parameters():
+                param.requires_grad = True
+            logging.info('LLAMA proj background is not frozen')
+
+        logging.info('Loading LLAMA proj background Done')
 
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
@@ -264,6 +321,7 @@ class VideoLLAMA(Blip2Base):
 
         self.video_frame_position_embedding = nn.Embedding(max_frame_pos, self.Qformer.config.hidden_size)
         self.video_frame_position_embedding_motion = nn.Embedding(max_frame_pos, self.Qformer.config.hidden_size)
+        self.video_frame_position_embedding_background = nn.Embedding(max_frame_pos, self.Qformer.config.hidden_size)
 
         self.num_video_query_token = num_video_query_token
         
@@ -342,7 +400,36 @@ class VideoLLAMA(Blip2Base):
         else:
             self.train_flag = 3
             
-        logging.info('Loading video_Qformer motion Done')           
+        logging.info('Loading video_Qformer motion Done')
+
+        logging.info('Loading video_Qformer background')
+        self.video_Qformer_background, self.video_query_tokens_background = self.init_video_Qformer(
+            num_query_token=num_video_query_token,
+            vision_width=self.Qformer.config.hidden_size, num_hidden_layers=2)
+
+        self.video_Qformer_background.cls = None
+        self.video_Qformer_background.bert.embeddings.word_embeddings = None
+        self.video_Qformer_background.bert.embeddings.position_embeddings = None
+        for layer in self.video_Qformer_background.bert.encoder.layer:
+            layer.output = None
+            layer.intermediate = None
+
+        if frozen_video_Qformer:
+            for name, param in self.video_Qformer_background.named_parameters():
+                param.requires_grad = False
+            for name, param in self.video_frame_position_embedding_background.named_parameters():
+                param.requires_grad = False
+            self.video_query_tokens_background.requires_grad = False
+            logging.info('video_Qformer background is frozen')
+        else:
+            for name, param in self.video_Qformer_background.named_parameters():
+                param.requires_grad = True
+            for name, param in self.video_frame_position_embedding_background.named_parameters():
+                param.requires_grad = True
+            self.video_query_tokens_background.requires_grad = True
+            logging.info('video_Qformer background is not frozen')
+
+        logging.info('Loading video_Qformer background Done')
 
         # if equip_audio_branch:
         #     print (f'Initializing audio encoder from {imagebind_ckpt_path} ...')
@@ -397,22 +484,119 @@ class VideoLLAMA(Blip2Base):
         self.visual_encoder.to("cpu")
         self.visual_encoder.float()
 
-    def encode_videoQformer_visual(self, image, motion=False):
-        if motion is False:
+    def encode_videoQformer_visual(self, image, motion=False, background=False):
+        if background:
+            # Background Encoder
             device = image.device
-            
+            batch_size,_,time_length,_,_ = image.size()
+            image = einops.rearrange(image, 'b c t h w -> (b t) c h w')
+
+            with self.maybe_autocast():
+                image_embeds = self.ln_vision_background(self.visual_encoder_background(image)).to(device)
+                image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
+
+                query_tokens = self.query_tokens_background.expand(image_embeds.shape[0], -1, -1)
+                query_output = self.Qformer_background.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+
+                position_ids = torch.arange(time_length, dtype=torch.long, device=query_tokens.device)
+                position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
+                frame_position_embeddings = self.video_frame_position_embedding_background(position_ids)
+                q_hidden_state = query_output.last_hidden_state
+
+                frame_position_embeddings = frame_position_embeddings.unsqueeze(-2)
+                frame_hidden_state = einops.rearrange(q_hidden_state, '(b t) q h -> b t q h',b=batch_size,t=time_length)
+                frame_hidden_state = frame_position_embeddings + frame_hidden_state
+
+                frame_hidden_state = einops.rearrange(frame_hidden_state, 'b t q h -> b (t q) h',b=batch_size,t=time_length)
+                frame_atts = torch.ones(frame_hidden_state.size()[:-1], dtype=torch.long).to(device)
+                video_query_tokens = self.video_query_tokens_background.expand(frame_hidden_state.shape[0], -1, -1)
+
+                video_query_output = self.video_Qformer_background.bert(
+                    query_embeds=video_query_tokens,
+                    encoder_hidden_states=frame_hidden_state,
+                    encoder_attention_mask=frame_atts,
+                    return_dict=True,
+                )
+                video_hidden = video_query_output.last_hidden_state.to(device)
+
+                inputs_llama = self.llama_proj_background_0(video_hidden)
+                inputs_llama, middle = self.llama_proj_background_last(inputs_llama)
+                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image_embeds.device)
+
+        elif motion:
+            # Motion Encoder
+            device = image.device
+
+            # input shape b,c,t,h,w
+            batch_size,_,time_length,_,_ = image.size()
+
+            image = einops.rearrange(image, 'b c t h w -> (b t) c h w')
+
+            with self.maybe_autocast():
+
+                # embed image features with blip2, out: (b t) q h
+                image_embeds = self.ln_vision_motion(self.visual_encoder_motion(image)).to(device)
+
+                image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
+
+                query_tokens = self.query_tokens_motion.expand(image_embeds.shape[0], -1, -1)
+
+                query_output = self.Qformer_motion.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds, #torch.Size([96, 257, 1408])
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+
+                # add frame_pos embedding
+                position_ids = torch.arange(time_length, dtype=torch.long, device=query_tokens.device)
+                position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
+                frame_position_embeddings = self.video_frame_position_embedding_motion(position_ids)
+                q_hidden_state = query_output.last_hidden_state
+
+                frame_position_embeddings = frame_position_embeddings.unsqueeze(-2)
+                frame_hidden_state = einops.rearrange(q_hidden_state, '(b t) q h -> b t q h',b=batch_size,t=time_length)
+                frame_hidden_state = frame_position_embeddings + frame_hidden_state
+
+                # frame attention
+                frame_hidden_state =  einops.rearrange(frame_hidden_state, 'b t q h -> b (t q) h',b=batch_size,t=time_length)
+                frame_atts = torch.ones(frame_hidden_state.size()[:-1], dtype=torch.long).to(device)
+                video_query_tokens = self.video_query_tokens_motion.expand(frame_hidden_state.shape[0], -1, -1)
+
+                #
+                video_query_output = self.video_Qformer_motion.bert(
+                    query_embeds=video_query_tokens,
+                    encoder_hidden_states=frame_hidden_state, # torch.Size([3, 1024, 768])
+                    encoder_attention_mask=frame_atts,
+                    return_dict=True,
+                    )
+                video_hidden = video_query_output.last_hidden_state.to(device)
+
+                inputs_llama = self.llama_proj_motion_0(video_hidden)
+                inputs_llama,middle = self.llama_proj_motion_last(inputs_llama)
+
+                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image_embeds.device)
+
+        else:
+            device = image.device
+
             # input shape b,c,t,h,w
             batch_size,_,time_length,_,_ = image.size()
             image = einops.rearrange(image, 'b c t h w -> (b t) c h w')
             with self.maybe_autocast():
-                
+
                 # embed image features with blip2, out: (b t) q h
                 image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
-                
+
                 image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
 
                 query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-                
+
                 query_output = self.Qformer.bert(
                     query_embeds=query_tokens,
                     encoder_hidden_states=image_embeds, #torch.Size([96, 257, 1408])
@@ -447,61 +631,7 @@ class VideoLLAMA(Blip2Base):
                 inputs_llama = self.llama_proj_0(video_hidden)
                 inputs_llama, middle = self.llama_proj_last(inputs_llama)
                 atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image_embeds.device)
-        
-        else:
-            # Motion Encoder
-            device = image.device
-            
-            # input shape b,c,t,h,w
-            batch_size,_,time_length,_,_ = image.size()
-            
-            image = einops.rearrange(image, 'b c t h w -> (b t) c h w')
-            
-            with self.maybe_autocast():
-                
-                # embed image features with blip2, out: (b t) q h
-                image_embeds = self.ln_vision_motion(self.visual_encoder_motion(image)).to(device)
-                
-                image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
 
-                query_tokens = self.query_tokens_motion.expand(image_embeds.shape[0], -1, -1)
-                
-                query_output = self.Qformer_motion.bert(
-                    query_embeds=query_tokens,
-                    encoder_hidden_states=image_embeds, #torch.Size([96, 257, 1408])
-                    encoder_attention_mask=image_atts,
-                    return_dict=True,
-                )
-
-                # add frame_pos embedding
-                position_ids = torch.arange(time_length, dtype=torch.long, device=query_tokens.device)
-                position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
-                frame_position_embeddings = self.video_frame_position_embedding_motion(position_ids)
-                q_hidden_state = query_output.last_hidden_state
-
-                frame_position_embeddings = frame_position_embeddings.unsqueeze(-2)
-                frame_hidden_state = einops.rearrange(q_hidden_state, '(b t) q h -> b t q h',b=batch_size,t=time_length)
-                frame_hidden_state = frame_position_embeddings + frame_hidden_state
-
-                # frame attention
-                frame_hidden_state =  einops.rearrange(frame_hidden_state, 'b t q h -> b (t q) h',b=batch_size,t=time_length)
-                frame_atts = torch.ones(frame_hidden_state.size()[:-1], dtype=torch.long).to(device)
-                video_query_tokens = self.video_query_tokens_motion.expand(frame_hidden_state.shape[0], -1, -1)
-
-                #
-                video_query_output = self.video_Qformer_motion.bert(
-                    query_embeds=video_query_tokens,
-                    encoder_hidden_states=frame_hidden_state, # torch.Size([3, 1024, 768])
-                    encoder_attention_mask=frame_atts,
-                    return_dict=True,
-                    )
-                video_hidden = video_query_output.last_hidden_state.to(device)
-
-                inputs_llama = self.llama_proj_motion_0(video_hidden)
-                inputs_llama,middle = self.llama_proj_motion_last(inputs_llama)
-                
-                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image_embeds.device)
-            
         return inputs_llama, atts_llama, middle
     
     
@@ -607,55 +737,60 @@ class VideoLLAMA(Blip2Base):
 
     def forward(self, samples):
         if 'conv_type' in samples.keys() and samples['conv_type']=='multi':
-            
+
             im_patch_token_id = self.IMAGE_PATCH_TOKEN_ID
-            
+
             image = samples["images"] # torch.Size([3, 3, 32, 224, 224])
             image_motion=samples["images_motion"]
-            
+            image_background=samples["images_background"]
+
             input_ids = samples['input_ids']
             if len(image.size())==4:
                 time = 1
                 image = einops.repeat(image, 'b c h w -> b c t h w',t = time)
                 image_motion = einops.repeat(image_motion, 'b c h w -> b c t h w',t = time)
+                image_background = einops.repeat(image_background, 'b c h w -> b c t h w',t = time)
 
             if self.train_flag == 0:
                 num_patch_tokens = self.num_video_query_token
                 img_embeds, atts_img, middle_result = self.encode_videoQformer_visual(image) #torch.Size([3, 32, 4096])
-                
+
                 #add motion image encode
                 img_motion_embeds, atts_motion_img, middle_result_motion = self.encode_videoQformer_visual(image_motion, motion=True) #torch.Size([3, 32, 4096])
-                
+
+                #add background image encode
+                img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
+
             # elif self.train_flag == 1:
             #     num_patch_tokens = self.num_audio_query_token
             #     image = einops.rearrange(image, 'b c t h w -> b t c h w')
             #     img_embeds, atts_img = self.encode_audioQformer(image, modality_type=ModalityType.VISION)
-                
+
             temp_input_ids = copy.deepcopy(input_ids) #torch.Size([3, 261])
             temp_input_ids[temp_input_ids == im_patch_token_id] = 0
             temp_input_embedding = self.llama_model.model.embed_tokens(temp_input_ids) # torch.Size([3, 261, 4096])
-            
-            # with Motion: Concat and input
+
+            # with Motion + Background: Concat and input
             new_input_embeds=[]
             cur_image_idx = 0
             for cur_input_ids, cur_input_embeds in zip(input_ids, temp_input_embedding,): # For Each Batch
                 cur_image_features = img_embeds[cur_image_idx]
                 cur_image_motion_features = img_motion_embeds[cur_image_idx]
+                cur_image_background_features = img_background_embeds[cur_image_idx]
 
-                #两个判断条件：1. 图像片段标记的数量应该与图像片段的数量相同。2. 图像片段标记应该是连续的。
-                if (cur_input_ids == im_patch_token_id).sum() != num_patch_tokens * 2:
+                if (cur_input_ids == im_patch_token_id).sum() != num_patch_tokens * 3:
                         raise ValueError("The number of image patch tokens should be the same as the number of image patches.")
                 masked_indices = torch.where(cur_input_ids == im_patch_token_id)[0]
                 mask_index_start = masked_indices[0]
-                if (masked_indices != torch.arange(mask_index_start, mask_index_start+num_patch_tokens*2, device=masked_indices.device, dtype=masked_indices.dtype)).any():
+                if (masked_indices != torch.arange(mask_index_start, mask_index_start+num_patch_tokens*3, device=masked_indices.device, dtype=masked_indices.dtype)).any():
                     raise ValueError("The image patch tokens should be consecutive.")
 
-                cur_new_input_embeds = torch.cat((cur_input_embeds[:mask_index_start], cur_image_features,cur_image_motion_features, cur_input_embeds[mask_index_start+num_patch_tokens*2:]), dim=0)
-                
+                cur_new_input_embeds = torch.cat((cur_input_embeds[:mask_index_start], cur_image_features, cur_image_motion_features, cur_image_background_features, cur_input_embeds[mask_index_start+num_patch_tokens*3:]), dim=0)
+
                 new_input_embeds.append(cur_new_input_embeds)
-                
-                cur_image_idx+=1            
-            
+
+                cur_image_idx+=1
+
             inputs_embeds = torch.stack(new_input_embeds, dim=0)
             targets = samples['labels']
             attention_mask = samples['attention_mask']
@@ -667,17 +802,19 @@ class VideoLLAMA(Blip2Base):
                     labels=targets,
                 )
             loss = outputs.loss
-            
-            return {"loss": loss, "loss_motion": loss, "middle_result": middle_result, "middle_result_motion": middle_result_motion}
+
+            return {"loss": loss, "loss_motion": loss, "loss_background": loss, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
         else:
             image = samples["image"]
             image_motion=samples["image_motion"]
+            image_background=samples["image_background"]
 
             if len(image.size()) != 5:
                 time = 1
                 image = einops.repeat(image, 'b c h w -> b c t h w',t = time)
                 image_motion = einops.repeat(image_motion, 'b c h w -> b c t h w',t = time)
-            
+                image_background = einops.repeat(image_background, 'b c h w -> b c t h w',t = time)
+
             if self.train_flag == 1:
                 image = einops.rearrange(image, 'b c t h w -> b t c h w')
                 img_embeds, atts_img = self.encode_audioQformer(image, modality_type=ModalityType.VISION)
@@ -685,18 +822,21 @@ class VideoLLAMA(Blip2Base):
                 img_embeds, atts_img, middle_result = self.encode_videoQformer_visual(image) #torch.Size([4, 32, 4096])
                 #add motion image encode
                 img_motion_embeds, atts_motion_img, middle_result_motion = self.encode_videoQformer_visual(image_motion, motion=True) #torch.Size([4, 32, 4096]) b t embedding
-                img_embeds = torch.cat([img_embeds, img_motion_embeds], dim=1)
-                atts_img = torch.cat([atts_img, atts_motion_img], dim=1)
+                #add background image encode
+                img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
+                img_embeds = torch.cat([img_embeds, img_motion_embeds, img_background_embeds], dim=1)
+                atts_img = torch.cat([atts_img, atts_motion_img, atts_background_img], dim=1)
 
             if self.prompt_list:
                 prompt = random.choice(self.prompt_list)
                 img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, prompt)
-                
+
 
             self.llama_tokenizer.padding_side = "right"
 
             text = [t + self.end_sym for t in samples["text_input"]]
             text_motion = [t + self.end_sym for t in samples["text_input_motion"]]
+            text_background = [t + self.end_sym for t in samples["text_input_background"]]
 
             to_regress_tokens = self.llama_tokenizer(
                 text,
@@ -706,7 +846,7 @@ class VideoLLAMA(Blip2Base):
                 max_length=self.max_txt_len,
                 add_special_tokens=False
             ).to(image.device)
-            
+
             to_regress_tokens_motion = self.llama_tokenizer(
                 text_motion,
                 return_tensors="pt",
@@ -714,13 +854,25 @@ class VideoLLAMA(Blip2Base):
                 truncation=True,
                 max_length=self.max_txt_len,
                 add_special_tokens=False
-            ).to(image.device)            
+            ).to(image.device)
+
+            to_regress_tokens_background = self.llama_tokenizer(
+                text_background,
+                return_tensors="pt",
+                padding="longest",
+                truncation=True,
+                max_length=self.max_txt_len,
+                add_special_tokens=False
+            ).to(image.device)
 
             targets = to_regress_tokens.input_ids.masked_fill(
                 to_regress_tokens.input_ids == self.llama_tokenizer.pad_token_id, -100
             )
             targets_motion = to_regress_tokens_motion.input_ids.masked_fill(
                 to_regress_tokens_motion.input_ids == self.llama_tokenizer.pad_token_id, -100
+            )
+            targets_background = to_regress_tokens_background.input_ids.masked_fill(
+                to_regress_tokens_background.input_ids == self.llama_tokenizer.pad_token_id, -100
             )
 
             empty_targets = (
@@ -731,32 +883,46 @@ class VideoLLAMA(Blip2Base):
                 torch.ones([atts_motion_img.shape[0], atts_motion_img.shape[1]+1],
                         dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
             )
-                        
+            empty_targets_background = (
+                torch.ones([atts_background_img.shape[0], atts_background_img.shape[1]+1],
+                        dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
+            )
+
             targets = torch.cat([empty_targets, targets], dim=1)
             targets_motion = torch.cat([empty_targets_motion, targets_motion], dim=1)
+            targets_background = torch.cat([empty_targets_background, targets_background], dim=1)
 
             batch_size = img_embeds.shape[0]
             bos = torch.ones([batch_size, 1],
                             dtype=to_regress_tokens.input_ids.dtype,
                             device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
             bos_embeds = self.llama_model.model.embed_tokens(bos)
-            
+
             bos_motion = torch.ones([batch_size, 1],
                             dtype=to_regress_tokens_motion.input_ids.dtype,
                             device=to_regress_tokens_motion.input_ids.device) * self.llama_tokenizer.bos_token_id
             bos_embeds_motion = self.llama_model.model.embed_tokens(bos_motion)
-                        
+
+            bos_background = torch.ones([batch_size, 1],
+                            dtype=to_regress_tokens_background.input_ids.dtype,
+                            device=to_regress_tokens_background.input_ids.device) * self.llama_tokenizer.bos_token_id
+            bos_embeds_background = self.llama_model.model.embed_tokens(bos_background)
+
             atts_bos = atts_img[:, :1]
             atts_bos_motion = atts_motion_img[:, :1]
+            atts_bos_background = atts_background_img[:, :1]
 
             to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
             to_regress_embeds_motion = self.llama_model.model.embed_tokens(to_regress_tokens_motion.input_ids)
-            
+            to_regress_embeds_background = self.llama_model.model.embed_tokens(to_regress_tokens_background.input_ids)
+
             inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
             inputs_embeds_motion = torch.cat([bos_embeds_motion, img_motion_embeds, to_regress_embeds_motion], dim=1)
-            
+            inputs_embeds_background = torch.cat([bos_embeds_background, img_background_embeds, to_regress_embeds_background], dim=1)
+
             attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
             attention_mask_motion = torch.cat([atts_bos_motion, atts_motion_img, to_regress_tokens_motion.attention_mask], dim=1)
+            attention_mask_background = torch.cat([atts_bos_background, atts_background_img, to_regress_tokens_background.attention_mask], dim=1)
 
             with self.maybe_autocast():
                 outputs = self.llama_model(
@@ -771,10 +937,17 @@ class VideoLLAMA(Blip2Base):
                     return_dict=True,
                     labels=targets_motion,
                 )
+                outputs_background = self.llama_model(
+                    inputs_embeds=inputs_embeds_background,
+                    attention_mask=attention_mask_background,
+                    return_dict=True,
+                    labels=targets_background,
+                )
             loss = outputs.loss
             loss_motion = outputs_motion.loss
+            loss_background = outputs_background.loss
 
-        return {"loss": loss, "loss_motion": loss_motion, "middle_result": middle_result, "middle_result_motion": middle_result_motion}
+        return {"loss": loss, "loss_motion": loss_motion, "loss_background": loss_background, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
 
     @classmethod
     def from_config(cls, cfg):

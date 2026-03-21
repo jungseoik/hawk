@@ -39,7 +39,7 @@ def compute_optical_flow(frames,frame_list):
         mask = (mag > mag_threshold).astype(np.uint8)
         mask = np.stack((mask, mask, mask), axis=-1)
         attention_frame = numpy_frame[i] * mask
-         
+
         # flow_rgb = flow_to_color(flow)
         optical_flows.append(attention_frame)
         # prev_frame = current_frame
@@ -48,6 +48,27 @@ def compute_optical_flow(frames,frame_list):
     optical_flows = np.stack(optical_flows, axis=0)
 
     return optical_flows
+
+def compute_background(frames, frame_list):
+    # 计算背景帧：与光流相反，保留静止区域，屏蔽运动区域
+    background_frames = []
+    numpy_frame = frames.asnumpy()
+    frame_list[0] = 1
+    for i in frame_list:
+        prev_frame = cv2.cvtColor(numpy_frame[i-1], cv2.COLOR_RGB2GRAY)
+        current_frame = cv2.cvtColor(numpy_frame[i], cv2.COLOR_RGB2GRAY)
+        flow = cv2.calcOpticalFlowFarneback(prev_frame, current_frame, None, 0.5, 3, 10, 3, 5, 1.2, 0)
+        mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+        # 反转掩码：保留静止区域（运动量小于阈值的区域）
+        mask = (mag <= mag_threshold).astype(np.uint8)
+        mask = np.stack((mask, mask, mask), axis=-1)
+        background_frame = numpy_frame[i] * mask
+
+        background_frames.append(background_frame)
+
+    background_frames = np.stack(background_frames, axis=0)
+
+    return background_frames
 
 def flow_to_color(flow):
     # 将光流转换为可视化的颜色图像
@@ -97,6 +118,43 @@ def load_video_motion(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling=
     fps = float(vr.get_avg_fps())
     sec = ", ".join([str(round(f / fps, 1)) for f in indices])
     # " " should be added in the start and end
+    msg = f"The video contains {len(indices)} frames sampled at {sec} seconds. "
+    return frms, msg
+
+
+def load_video_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="uniform", return_msg = False):
+    decord.bridge.set_bridge('native')
+    vr = VideoReader(uri=video_path, height=height, width=width)
+
+    vlen = len(vr)
+    start, end = 0, vlen
+
+    n_frms = min(n_frms, vlen)
+
+    if sampling == "uniform":
+        indices = np.arange(start, end, vlen / n_frms).astype(int).tolist()
+    elif sampling == "headtail":
+        indices_h = sorted(rnd.sample(range(vlen // 2), n_frms // 2))
+        indices_t = sorted(rnd.sample(range(vlen // 2, vlen), n_frms // 2))
+        indices = indices_h + indices_t
+    else:
+        raise NotImplementedError
+
+    # get_batch -> T, H, W, C
+    frames = vr.get_batch(np.arange(len(vr)))
+
+    temp_frms = compute_background(frames, indices)
+
+    decord.bridge.set_bridge("torch")
+
+    tensor_frms = torch.from_numpy(temp_frms) if type(temp_frms) is not torch.Tensor else temp_frms
+    frms = tensor_frms.permute(3, 0, 1, 2).float()  # (C, T, H, W)
+
+    if not return_msg:
+        return frms
+
+    fps = float(vr.get_avg_fps())
+    sec = ", ".join([str(round(f / fps, 1)) for f in indices])
     msg = f"The video contains {len(indices)} frames sampled at {sec} seconds. "
     return frms, msg
 
@@ -246,8 +304,15 @@ class AlproVideoTrainProcessor(AlproVideoBaseProcessor):
             width=self.image_size,
             sampling="headtail",
         )
+        clip_background = load_video_background(
+            video_path=vpath,
+            n_frms=self.n_frms,
+            height=self.image_size,
+            width=self.image_size,
+            sampling="headtail",
+        )
 
-        return self.transform(clip), self.transform(clip_motion)
+        return self.transform(clip), self.transform(clip_motion), self.transform(clip_background)
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -313,8 +378,15 @@ class AlproVideoEvalProcessor(AlproVideoBaseProcessor):
             width=self.image_size,
             sampling="headtail",
         )
+        clip_background = load_video_background(
+            video_path=vpath,
+            n_frms=self.n_frms,
+            height=self.image_size,
+            width=self.image_size,
+            sampling="headtail",
+        )
 
-        return self.transform(clip), self.transform(clip_motion)
+        return self.transform(clip), self.transform(clip_motion), self.transform(clip_background)
 
     @classmethod
     def from_config(cls, cfg=None):
