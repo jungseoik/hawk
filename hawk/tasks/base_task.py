@@ -203,6 +203,7 @@ class BaseTask:
         metric_logger.add_meter("motionloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
         metric_logger.add_meter("backgroundloss", SmoothedValue(window_size=1, fmt="{value:.7f}"))
         metric_logger.add_meter("middleloss_bg", SmoothedValue(window_size=1, fmt="{value:.7f}"))
+        metric_logger.add_meter("middleloss_app_bg", SmoothedValue(window_size=1, fmt="{value:.7f}"))
 
         # if iter-based runner, schedule lr based on inner epoch.
         logging.info(
@@ -253,7 +254,11 @@ class BaseTask:
             # background should be dissimilar from motion (they are complementary)
             mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
 
-            loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * loss_dict["loss_background"] + 0.1 * mse_loss + 0.1 * mse_loss_bg
+            # appearance and background should be similar (background is a subset of the full frame)
+            mse_loss_app_bg = F.cosine_similarity(middle_result, middle_result_background)
+            mse_loss_app_bg = 1 - mse_loss_app_bg
+
+            loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * loss_dict["loss_background"] + 0.1 * mse_loss + 0.1 * mse_loss_bg + 0.1 * mse_loss_app_bg
 
             # after_train_step()
             if use_amp:
@@ -277,6 +282,7 @@ class BaseTask:
             metric_logger.update(motionloss=loss_dict["loss_motion"].item())
             metric_logger.update(backgroundloss=loss_dict["loss_background"].item())
             metric_logger.update(middleloss_bg=mse_loss_bg.item())
+            metric_logger.update(middleloss_app_bg=mse_loss_app_bg.item())
 
             total_loss = loss.item()
             lr = optimizer.param_groups[0]["lr"]
@@ -285,6 +291,7 @@ class BaseTask:
             motion_loss = loss_dict["loss_motion"].item()
             background_loss = loss_dict["loss_background"].item()
             middle_loss_bg = mse_loss_bg.item()
+            middle_loss_app_bg = mse_loss_app_bg.item()
 
             writer.add_scalar('Loss/total', total_loss, self.all_iter)
             writer.add_scalar('Learning Rate', lr, self.all_iter)
@@ -293,6 +300,7 @@ class BaseTask:
             writer.add_scalar('Loss/motion', motion_loss, self.all_iter)
             writer.add_scalar('Loss/background', background_loss, self.all_iter)
             writer.add_scalar('Loss/middle_bg', middle_loss_bg, self.all_iter)
+            writer.add_scalar('Loss/middle_app_bg', middle_loss_app_bg, self.all_iter)
             self.all_iter = self.all_iter + 1
 
         # after train_epoch()
