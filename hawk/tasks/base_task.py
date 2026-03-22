@@ -252,7 +252,6 @@ class BaseTask:
 
             # background should be dissimilar from motion (they are complementary)
             mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
-            mse_loss_bg = 1 - mse_loss_bg
 
             loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * loss_dict["loss_background"] + 0.1 * mse_loss + 0.1 * mse_loss_bg
 
