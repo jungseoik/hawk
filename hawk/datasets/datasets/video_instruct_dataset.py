@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
 import copy
 from hawk.processors import transforms_video,AlproVideoTrainProcessor
 from torchvision import transforms
-from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background
+from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background,load_video_motion_and_background
 from hawk.conversation.conversation_video import Conversation,SeparatorStyle
 import numpy as np
 
@@ -156,16 +156,7 @@ class Video_Instruct_Dataset(BaseDataset):
                     width=self.resize_size,
                     sampling ="uniform", return_msg = True
                 )
-                #读入动作视频
-                video_motion, msg_motion = load_video_motion(
-                    video_path=video_path,
-                    n_frms=self.num_frm,
-                    height=self.resize_size,
-                    width=self.resize_size,
-                    sampling ="uniform", return_msg = True
-                )
-                #读入背景视频
-                video_background, msg_background = load_video_background(
+                video_motion, video_background, msg_motion = load_video_motion_and_background(
                     video_path=video_path,
                     n_frms=self.num_frm,
                     height=self.resize_size,

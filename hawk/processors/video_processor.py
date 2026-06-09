@@ -24,33 +24,13 @@ decord.bridge.set_bridge("torch")
 
 mag_threshold = 0.2
 
-def compute_optical_flow(frames,frame_list):
-    # 函数用于计算帧序列的光流
-    optical_flows = []
-    numpy_frame = frames.asnumpy()
-    # prev_frame = cv2.cvtColor(numpy_frame[0], cv2.COLOR_RGB2GRAY)
-    frame_list[0] = 1
-    for i in frame_list:
-        prev_frame = cv2.cvtColor(numpy_frame[i-1], cv2.COLOR_RGB2GRAY)
-        current_frame = cv2.cvtColor(numpy_frame[i], cv2.COLOR_RGB2GRAY)
-        flow = cv2.calcOpticalFlowFarneback(prev_frame, current_frame, None, 0.5, 3, 10, 3, 5, 1.2, 0)
-        mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-        norm_mag = cv2.normalize(mag, None, 0, 1, cv2.NORM_MINMAX).astype(np.uint8)
-        mask = (mag > mag_threshold).astype(np.uint8)
-        mask = np.stack((mask, mask, mask), axis=-1)
-        attention_frame = numpy_frame[i] * mask
+def compute_motion_and_background(frames, frame_list):
+    """Compute both motion and background frames in a single optical flow pass.
 
-        # flow_rgb = flow_to_color(flow)
-        optical_flows.append(attention_frame)
-        # prev_frame = current_frame
-
-    # 将光流的特征维度
-    optical_flows = np.stack(optical_flows, axis=0)
-
-    return optical_flows
-
-def compute_background(frames, frame_list):
-    # 计算背景帧：与光流相反，保留静止区域，屏蔽运动区域
+    Motion mask: regions where optical flow magnitude > threshold (moving objects)
+    Background mask: inverse of motion mask (static scene context)
+    """
+    motion_frames = []
     background_frames = []
     numpy_frame = frames.asnumpy()
     frame_list[0] = 1
@@ -58,16 +38,27 @@ def compute_background(frames, frame_list):
         prev_frame = cv2.cvtColor(numpy_frame[i-1], cv2.COLOR_RGB2GRAY)
         current_frame = cv2.cvtColor(numpy_frame[i], cv2.COLOR_RGB2GRAY)
         flow = cv2.calcOpticalFlowFarneback(prev_frame, current_frame, None, 0.5, 3, 10, 3, 5, 1.2, 0)
-        mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-        # 反转掩码：保留静止区域（运动量小于阈值的区域）
-        mask = (mag <= mag_threshold).astype(np.uint8)
-        mask = np.stack((mask, mask, mask), axis=-1)
-        background_frame = numpy_frame[i] * mask
+        mag, _ = cv2.cartToPolar(flow[...,0], flow[...,1])
 
-        background_frames.append(background_frame)
+        motion_mask = (mag > mag_threshold).astype(np.uint8)
+        motion_mask_3ch = np.stack((motion_mask, motion_mask, motion_mask), axis=-1)
+        motion_frames.append(numpy_frame[i] * motion_mask_3ch)
 
-    background_frames = np.stack(background_frames, axis=0)
+        bg_mask_3ch = 1 - motion_mask_3ch
+        background_frames.append(numpy_frame[i] * bg_mask_3ch)
 
+    return np.stack(motion_frames, axis=0), np.stack(background_frames, axis=0)
+
+
+def compute_optical_flow(frames, frame_list):
+    """Compute motion frames only (kept for backward compatibility)."""
+    motion_frames, _ = compute_motion_and_background(frames, frame_list)
+    return motion_frames
+
+
+def compute_background(frames, frame_list):
+    """Compute background frames only (kept for backward compatibility)."""
+    _, background_frames = compute_motion_and_background(frames, frame_list)
     return background_frames
 
 def flow_to_color(flow):
@@ -157,6 +148,42 @@ def load_video_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampl
     sec = ", ".join([str(round(f / fps, 1)) for f in indices])
     msg = f"The video contains {len(indices)} frames sampled at {sec} seconds. "
     return frms, msg
+
+
+def load_video_motion_and_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="uniform", return_msg=False):
+    """Load video and compute both motion and background frames in a single optical flow pass."""
+    decord.bridge.set_bridge('native')
+    vr = VideoReader(uri=video_path, height=height, width=width)
+
+    vlen = len(vr)
+    start, end = 0, vlen
+
+    n_frms = min(n_frms, vlen)
+
+    if sampling == "uniform":
+        indices = np.arange(start, end, vlen / n_frms).astype(int).tolist()
+    elif sampling == "headtail":
+        indices_h = sorted(rnd.sample(range(vlen // 2), n_frms // 2))
+        indices_t = sorted(rnd.sample(range(vlen // 2, vlen), n_frms // 2))
+        indices = indices_h + indices_t
+    else:
+        raise NotImplementedError
+
+    frames = vr.get_batch(np.arange(len(vr)))
+    motion_frms, bg_frms = compute_motion_and_background(frames, indices)
+
+    decord.bridge.set_bridge("torch")
+
+    motion_tensor = torch.from_numpy(motion_frms).permute(3, 0, 1, 2).float()
+    bg_tensor = torch.from_numpy(bg_frms).permute(3, 0, 1, 2).float()
+
+    if not return_msg:
+        return motion_tensor, bg_tensor
+
+    fps = float(vr.get_avg_fps())
+    sec = ", ".join([str(round(f / fps, 1)) for f in indices])
+    msg = f"The video contains {len(indices)} frames sampled at {sec} seconds. "
+    return motion_tensor, bg_tensor, msg
 
 
 def load_video(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="uniform", return_msg = False):
@@ -297,14 +324,7 @@ class AlproVideoTrainProcessor(AlproVideoBaseProcessor):
             width=self.image_size,
             sampling="headtail",
         )
-        clip_motion = load_video_motion(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
-            sampling="headtail",
-        )
-        clip_background = load_video_background(
+        clip_motion, clip_background = load_video_motion_and_background(
             video_path=vpath,
             n_frms=self.n_frms,
             height=self.image_size,
@@ -371,14 +391,7 @@ class AlproVideoEvalProcessor(AlproVideoBaseProcessor):
             width=self.image_size,
         )
 
-        clip_motion = load_video_motion(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
-            sampling="headtail",
-        )
-        clip_background = load_video_background(
+        clip_motion, clip_background = load_video_motion_and_background(
             video_path=vpath,
             n_frms=self.n_frms,
             height=self.image_size,

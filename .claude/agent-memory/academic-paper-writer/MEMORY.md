@@ -1,0 +1,2 @@
+- [User Research Context](user_research_context.md) -- HAWK++ Tri-Branch paper author, Korean academic writing style
+- [Paper Format Conventions](feedback_paper_format.md) -- Bilingual headings, blockquote math, figure placeholders
