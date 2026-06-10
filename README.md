@@ -1,49 +1,62 @@
 <div align="center">
 
-# [NeurIPS 2024] Hawk: Learning to Understand Open-World Video Anomalies
-
-<div align="center">
-
-### This is the official repository for [Hawk](https://openreview.net/pdf?id=vBKoEZ1PG3).
-
-[Jiaqi Tang^](https://jqt.me/), [Hao Lu^](https://scholar.google.com/citations?user=OrbGCGkAAAAJ&hl=zh-TW), [Ruizheng Wu](https://scholar.google.com/citations?user=OOagpAcAAAAJ&hl=en), [Xiaogang Xu](https://xuxiaogang.com/), [Ke Ma](https://scholar.google.com.hk/citations?user=yXGNGS8AAAAJ&hl=en), [Cheng Fang](),
-\
-[Bin Guo](http://www.guob.org/), [Jiangbo Lu](https://sites.google.com/site/jiangbolu), [Qifeng Chen](https://cqf.io/) and [Ying-Cong Chen*](https://www.yingcong.me/)
-
-^: Equal contribution.
-*: Corresponding Author.
-
-[![made-for-VSCode](https://img.shields.io/badge/Made%20for-VSCode-1f425f.svg)](https://code.visualstudio.com/) [![Visits Badge](https://badges.strrl.dev/visits/jqtangust/hawk)](https://badges.strrl.dev)
-
-
+# CERBERUS — Three-Headed Video Understanding for Open-World Anomaly Detection
 
 <img src="figs/icon.png" alt="Have eyes like a HAWK!" width="80">
+
+**HAWK(NeurIPS 2024)를 확장한 신규 연구 저장소**
+
 </div>
-</div>
 
+---
 
-## 📢 **Updates**
+## 📌 이 저장소는 무엇인가 (먼저 읽어주세요)
 
-- ✅ **Tri-Branch Architecture** - Added **Background branch** for static scene context learning alongside Appearance and Motion branches. See [Tri-Branch Architecture Details](docs/tri-branch-architecture.md).
-- ✅ Feb 25, 2025 - Huggingface Demo of **Hawk** is avaliable at [HERE](https://huggingface.co/spaces/Jiaqi-hkust/hawk).
-- ✅ Feb 25, 2025 - We release the **training and demo code** of **Hawk**.
-- ✅ Feb 25, 2025 - We release the **dataset (video + annotation)** of **Hawk**. Check this Huggingface link for [DOWNLOAD](https://huggingface.co/datasets/Jiaqi-hkust/hawk).
-- ✅ Step 26, 2024 - **Hawk** is accepted by NeurIPS 2024.
-- ✅ June 29, 2024 - We release the **dataset (annotation)** of Hawk. Check this Google Cloud link for [DOWNLOAD](https://drive.google.com/file/d/1WCnizldWZvtS4Yg5SX7ay5C3kUQfz-Eg/view?usp=sharing).
+이 저장소는 **두 가지 연구**가 함께 들어 있습니다. 코드와 문서가 한곳에 섞여 있으므로, 무엇이 어느 쪽인지 먼저 구분하세요.
 
+| | **HAWK** (베이스) | **CERBERUS** (이 저장소의 신규 연구) |
+|:---|:---|:---|
+| **정체** | NeurIPS 2024 공식 논문·코드 | HAWK를 확장한 **신규 논문** (개발명 HAWK++) |
+| **아키텍처** | **Dual-Branch** — Appearance + Motion | **Tri-Branch** — Appearance + Motion + **Background** |
+| **새 아이디어** | VLM에 모션 모달리티 통합 | Optical Flow 역마스크로 **정적 장면 맥락(Background)** 분리 학습 |
+| **논문** | 📄 [원문 PDF](paper_translation/origin/hawk_neurips2024.pdf) · [한글 번역](paper_translation/origin/) | [`paper_translation/improved/`](paper_translation/improved/) *(집필 중)* |
+| **상태** | 완성·공개 | **진행 중** |
 
-## 🔍 **Motivation** - Have eyes like a Hawk!
-- 🚩 Current VAD systems are often limited by their superficial semantic understanding of scenes and minimal user interaction.
-- 🚩 Additionally, the prevalent data scarcity in existing datasets restricts their applicability in open-world scenarios.
+> **핵심 한 줄**: `Motion + Background = 원본 프레임`이라는 상보적 관계를 이용해, HAWK가 놓치던 **정적 배경 맥락**(도로 상태, 주변 환경)을 별도 브랜치로 학습합니다.
 
-  <div align="center">
-    <img src="figs/motivation1.png" alt="Hawk">
-  </div>
+> 코드·문서 작업 시 길잡이는 [`CLAUDE.md`](CLAUDE.md)를 참고하세요.
 
+---
 
-## 🏗️ **Tri-Branch Architecture**
+## 🗺️ 저장소 지도
 
-기존의 Appearance + Motion 2-브랜치 구조에 **Background 브랜치**를 추가하여, 비디오를 3가지 관점에서 분석합니다.
+```
+hawk/
+├── CLAUDE.md                  ← 작업 길잡이 (베이스 vs 신규 구분, 진입점)
+├── README.md                  ← (이 파일) 전체 개요
+│
+├── 🟦 HAWK (베이스)
+│   ├── paper_translation/origin/
+│   │   ├── hawk_neurips2024.pdf   원본 논문 PDF (NeurIPS 2024)
+│   │   └── 00~08_*.md             원본 논문 한글 번역
+│   ├── app.py / train.py      데모·학습 진입점
+│   └── configs/               학습·평가 설정
+│
+├── 🟩 CERBERUS (신규 연구)
+│   ├── paper_translation/improved/      신규 논문 초안 (한글)
+│   ├── docs/tri-branch-architecture.md  Tri-Branch 아키텍처 상세
+│   └── improvements/                    코드 개선 기록 (성능·버그 수정)
+│
+└── hawk/                      모델 코드 (★원래 Dual-Branch → 현재 Background 브랜치 추가됨)
+```
+
+> 📚 **문서 색인**: [`paper_translation/README.md`](paper_translation/README.md) · **신규 아키텍처**: [`docs/tri-branch-architecture.md`](docs/tri-branch-architecture.md) · **개선 내역**: [`improvements/`](improvements/)
+
+---
+
+## 🟩 CERBERUS: Tri-Branch Architecture (신규 연구)
+
+기존 HAWK의 **Appearance + Motion** 2-브랜치 구조에 **Background 브랜치**를 추가하여, 비디오를 3가지 관점에서 분석합니다.
 
 | Branch | 이미지 입력 | 텍스트 입력 | 역할 |
 |:---:|:---:|:---:|:---:|
@@ -51,8 +64,7 @@
 | **Motion** | 움직이는 영역만 (Optical Flow `mag > threshold`) | 동사 + 주어 + 목적어 | 이상 행동 포착 |
 | **Background** | 정적인 영역만 (Optical Flow `mag <= threshold`) | 명사 + 형용사 | 장면 맥락 이해 |
 
-> Motion과 Background는 Optical Flow 마스크의 **정확한 역(inverse)** 관계입니다.
-> `motion_frame + background_frame = original_frame`
+> Motion과 Background는 Optical Flow 마스크의 **정확한 역(inverse)** 관계입니다. → `motion_frame + background_frame = original_frame`
 
 ```
 Input Video ──┬── Original RGB ──→ Appearance Branch ──┐
@@ -60,173 +72,129 @@ Input Video ──┬── Original RGB ──→ Appearance Branch ──┐
               └── Background Mask → Background Branch ─┘
 ```
 
-> 상세 아키텍처, Loss 구성, 데이터 파이프라인은 [docs/tri-branch-architecture.md](docs/tri-branch-architecture.md)를 참고하세요.
+**Loss 구성:**
+```
+Total Loss = L_appearance + 0.1·L_motion + 0.1·L_background
+           + 0.1·CosineSim(appearance, motion)      # 유사성 강제
+           + 0.1·CosineSim(motion, background)       # 비유사성 강제
+```
 
+> 상세 아키텍처·Loss·데이터 파이프라인: [`docs/tri-branch-architecture.md`](docs/tri-branch-architecture.md)
+> 최근 개선(Optical Flow 중복 연산 제거 ~50% 단축, Loss 방향 버그 수정): [`improvements/optical_flow_and_loss_fix.md`](improvements/optical_flow_and_loss_fix.md)
 
-## ▶️ **Getting Started**
+---
 
-### 🪒 *Installation*
-- Create environment by following steps:
-  ```
-  apt install ffmpeg
-  conda env create -f environment.yml
-  conda activate hawk
-  ```
+## 🟦 HAWK: 베이스 (NeurIPS 2024)
 
-### 🏰 *Pretrained and Fine-tuned Model*
+> 원본 저장소: [Hawk](https://openreview.net/pdf?id=vBKoEZ1PG3) · [HuggingFace Demo](https://huggingface.co/spaces/Jiaqi-hkust/hawk) · [Dataset](https://huggingface.co/datasets/Jiaqi-hkust/hawk)
 
+[Jiaqi Tang^](https://jqt.me/), [Hao Lu^](https://scholar.google.com/citations?user=OrbGCGkAAAAJ&hl=zh-TW), [Ruizheng Wu](https://scholar.google.com/citations?user=OOagpAcAAAAJ&hl=en), [Xiaogang Xu](https://xuxiaogang.com/), [Ke Ma](https://scholar.google.com.hk/citations?user=yXGNGS8AAAAJ&hl=en), Cheng Fang, [Bin Guo](http://www.guob.org/), [Jiangbo Lu](https://sites.google.com/site/jiangbolu), [Qifeng Chen](https://cqf.io/), [Ying-Cong Chen*](https://www.yingcong.me/)
 
-- The following checkpoints are utilized to run Hawk：
+### 🔍 Motivation — Have eyes like a Hawk!
+- 🚩 기존 VAD 시스템은 장면에 대한 피상적 의미 이해와 최소한의 사용자 상호작용에 머무는 경우가 많음
+- 🚩 데이터 부족으로 인해 open-world 시나리오 적용이 제한됨
 
-  | Checkpoint       | Link | Note |
-  |:------------------|-------------|-------------|
-  | Video-LLaMA-2-7B-Finetuned | [link](https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-7B-Finetuned/tree/main) | Used as initial weights for training.|
-  | **Hawk_Pretrained** | [link](https://huggingface.co/Jiaqi-hkust/hawk) | Pretrained on the [WebViD](https://github.com/m-bain/webvid)|
-  | **Hawk_Finetuned** | [link](https://huggingface.co/Jiaqi-hkust/hawk) | Fine-tuned on [Hawk dataset](https://huggingface.co/datasets/Jiaqi-hkust/hawk)|
+<div align="center"><img src="figs/motivation1.png" alt="Hawk"></div>
 
-- If you want to use the pretrained model, please use the **Hawk_Pretrained** checkpoint. 
-- If you wish to leverage the model for our anomaly understanding, please opt for the **Hawk_Finetuned** checkpoint.
+---
 
+## ▶️ Getting Started
 
-## ⏳ **Domo**
+### 🪒 Installation
+```bash
+apt install ffmpeg
+conda env create -f environment.yml
+conda activate hawk
+```
 
-- The configuration files for [`demo`](/configs/eval_configs/eval.yaml).
+### 🏰 Pretrained / Fine-tuned Model
 
-- Replace the following part as your own path:
-  ```
-    # Use LLaMA-2-chat as base modal
+| Checkpoint | Link | Note |
+|:---|:---|:---|
+| Video-LLaMA-2-7B-Finetuned | [link](https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-7B-Finetuned/tree/main) | 학습 초기 가중치 |
+| **Hawk_Pretrained** | [link](https://huggingface.co/Jiaqi-hkust/hawk) | [WebVid](https://github.com/m-bain/webvid)로 사전학습 |
+| **Hawk_Finetuned** | [link](https://huggingface.co/Jiaqi-hkust/hawk) | [Hawk dataset](https://huggingface.co/datasets/Jiaqi-hkust/hawk)로 파인튜닝 |
 
-    # Some ckpts could be download from Video_LLaMA-2-7B-Finetuned
-    # https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-7B-Finetuned
-    llama_model: ".../Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+- 사전학습 모델만 쓰려면 **Hawk_Pretrained**, 이상 이해까지 활용하려면 **Hawk_Finetuned**를 사용하세요.
 
-    # Hawk Weight (Pretrained or Finetuned)
-    ckpt: '.../checkpoint.pth' 
-  ```
+---
 
-- Then, run the script:
-  ```
-  python app.py \
-      --cfg-path configs/eval_configs/eval.yaml \
-      --model_type llama_v2 \
-      --gpu-id 0
-  ```
+## ⏳ Demo
 
+[`configs/eval_configs/eval.yaml`](configs/eval_configs/eval.yaml)에서 경로를 본인 환경에 맞게 교체하세요.
+```yaml
+# LLaMA-2-chat 베이스 (Video-LLaMA-2-7B-Finetuned에서 다운로드 가능)
+llama_model: ".../Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+# Hawk 가중치 (Pretrained 또는 Finetuned)
+ckpt: '.../checkpoint.pth'
+```
+```bash
+python app.py --cfg-path configs/eval_configs/eval.yaml --model_type llama_v2 --gpu-id 0
+```
 - GUI [Online Demo](https://huggingface.co/spaces/Jiaqi-hkust/hawk)
-  <div align="center">
-    <img src="figs/demo.png" alt="Hawk">
-  </div>
 
-## 🖥️ **Training**
+<div align="center"><img src="figs/demo.png" alt="Hawk"></div>
 
-### 💾 *Dataset Preparation*
+---
 
--  **For your convenience, we now provide the video and annotations for the Hawk dataset. You can download them using the Hugglingface: [DOWNLOAD](https://huggingface.co/datasets/Jiaqi-hkust/hawk).**
+## 🖥️ Training
 
-- Traditional Data Acquisition Method (from their original sources).
-  1. [CUHK_Avenue](https://www.cse.cuhk.edu.hk/leojia/projects/detectabnormal/dataset.html)
-  2. [DoTA](https://github.com/MoonBlvd/Detection-of-Traffic-Anomaly)
-  3. [Ped1](http://www.svcl.ucsd.edu/projects/anomaly/dataset.htm)
-  4. [Ped2](http://www.svcl.ucsd.edu/projects/anomaly/dataset.htm)
-  5. [ShanghaiTech](https://svip-lab.github.io/dataset/campus_dataset.html)
-  6. [UBNormal](https://github.com/lilygeorgescu/UBnormal/)
-  7. [UCF_Crime](https://www.crcv.ucf.edu/projects/real-world/)
+### 💾 Dataset Preparation
+- Hawk 데이터셋(비디오 + 어노테이션): [HuggingFace DOWNLOAD](https://huggingface.co/datasets/Jiaqi-hkust/hawk)
+- 어노테이션만: [Google Drive DOWNLOAD](https://drive.google.com/file/d/1WCnizldWZvtS4Yg5SX7ay5C3kUQfz-Eg/view?usp=sharing)
+- 원 출처: [CUHK_Avenue](https://www.cse.cuhk.edu.hk/leojia/projects/detectabnormal/dataset.html), [DoTA](https://github.com/MoonBlvd/Detection-of-Traffic-Anomaly), [Ped1/Ped2](http://www.svcl.ucsd.edu/projects/anomaly/dataset.htm), [ShanghaiTech](https://svip-lab.github.io/dataset/campus_dataset.html), [UBNormal](https://github.com/lilygeorgescu/UBnormal/), [UCF_Crime](https://www.crcv.ucf.edu/projects/real-world/)
 
- - Google Drive Link to [DOWNLOAD](https://drive.google.com/file/d/1WCnizldWZvtS4Yg5SX7ay5C3kUQfz-Eg/view?usp=sharing) our annotations.
-
- - Data Structure: each forder contains one annotation file (e.g. CUHK Avenue, DoTA, etc.). The `All_Mix` directory contains all of datasets in training and testing.
-
- - The dataset is organized as follows:
-
-      ```
-      (Hawk_data)
-
-      Annotation
-      ├── All_Mix
-      │   ├── all_videos_all.json
-      │   ├── all_videos_test.json
-      │   └── all_videos_train.json
-      │
-      ├── CUHK_Avenue
-      │   └── Avenue.json
-      ├── DoTA
-      │   └── DoTA.json
-      ├── Ped1
-      │   ├── ...
-      ├── ...
-      └── UCF_Crime
-      │   └── ...
-      │
-      Videos
-      ├── CUHK_Avenue
-      │   └── Avenue.json
-      ├── DoTA
-      │   └── DoTA.json
-      ├── Ped1
-      │   ├── ...
-      ├── ...
-      │
-      readme
-
-      ```
-      Note： the data path should be redefined.
-
-
-### 🔨 *Configuration*
-
-- The configuration files for [`training`](/configs/train_configs) including two stages.
-
-- Replace the following part with your own path:
-
-  ```
-  llama_model: ".../Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
-
-  # The ckpt of the vision branch after stage1 pretrained, (only for stage 2)
-  ckpt: ".../checkpoint.pth"
-  ```
-
-### 🖥️ *To Train*
-
-- Then, run the script:
-  ```
-  # for pretraining
-  NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='10000' train.py --cfg-path  ./configs/train_configs/stage1_pretrain.yaml
-
-  # for fine-tuning
-  NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='12001' train.py --cfg-path  ./configs/train_configs/stage2_finetune.yaml
-  ```
-
-  *Resource Usage: Training (stage 1 and stage 2): 4 * RTX A6000 48G*
-
-### 📊 *Training with Tri-Branch (Appearance + Motion + Background)*
-
-학습 시 각 비디오에서 3종류의 입력이 자동으로 생성됩니다:
-
+데이터 구조:
 ```
-각 비디오 프레임에 대해:
-1. Original RGB → Appearance branch 입력
-2. Optical Flow (mag > 0.2) masking → Motion branch 입력 (움직이는 영역만)
-3. Optical Flow (mag <= 0.2) masking → Background branch 입력 (정적 영역만)
+(Hawk_data)
+Annotation
+├── All_Mix
+│   ├── all_videos_all.json / all_videos_test.json / all_videos_train.json
+├── CUHK_Avenue/Avenue.json
+├── DoTA/DoTA.json
+├── ... └── UCF_Crime/...
+Videos
+├── CUHK_Avenue/ ├── DoTA/ ├── Ped1/ ...
+```
+> `All_Mix`는 학습·테스트 전체 데이터셋을 합친 디렉터리입니다. 데이터 경로는 재정의가 필요합니다.
+
+### 🔨 Configuration
+[`configs/train_configs`](configs/train_configs)의 2-stage 설정에서 경로를 교체하세요.
+```yaml
+llama_model: ".../Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+# stage1 사전학습 후 vision branch 체크포인트 (stage2 전용)
+ckpt: ".../checkpoint.pth"
 ```
 
-학습 Loss 구성:
+### 🖥️ To Train
+```bash
+# 사전학습
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='10000' \
+  train.py --cfg-path ./configs/train_configs/stage1_pretrain.yaml
+
+# 파인튜닝
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='12001' \
+  train.py --cfg-path ./configs/train_configs/stage2_finetune.yaml
 ```
-Total Loss = L_appearance + 0.1 * L_motion + 0.1 * L_background
-           + 0.1 * CosineSim(appearance, motion)
-           + 0.1 * CosineSim(motion, background)
+*리소스: stage 1·2 모두 4 × RTX A6000 48G*
+
+### 📊 Tri-Branch 학습 (CERBERUS)
+각 비디오에서 3종류 입력이 자동 생성됩니다:
 ```
+1. Original RGB                       → Appearance branch
+2. Optical Flow (mag > 0.2) masking   → Motion branch (움직이는 영역만)
+3. Optical Flow (mag <= 0.2) masking  → Background branch (정적 영역만)
+```
+TensorBoard 모니터링 지표: `Loss/total`, `Loss/ori`, `Loss/motion`, `Loss/background`, `Loss/middle`(app-motion), `Loss/middle_bg`(motion-background)
 
-TensorBoard로 다음 지표를 모니터링할 수 있습니다:
-- `Loss/total`, `Loss/ori`, `Loss/motion`, `Loss/background`
-- `Loss/middle` (appearance-motion), `Loss/middle_bg` (motion-background)
+> 상세: [`docs/tri-branch-architecture.md`](docs/tri-branch-architecture.md)
 
-> 상세 내용: [docs/tri-branch-architecture.md](docs/tri-branch-architecture.md)
+---
 
-## 🌐 **Citations**
+## 🌐 Citation
 
-**The following is a BibTeX reference:**
-
-``` latex
+**HAWK (베이스 논문):**
+```latex
 @inproceedings{atang2024hawk,
   title = {Hawk: Learning to Understand Open-World Video Anomalies},
   author = {Tang, Jiaqi and Lu, Hao and Wu, Ruizheng and Xu, Xiaogang and Ma, Ke and Fang, Cheng and Guo, Bin and Lu, Jiangbo and Chen, Qifeng and Chen, Ying-Cong},
@@ -234,13 +202,8 @@ TensorBoard로 다음 지표를 모니터링할 수 있습니다:
   booktitle = {Neural Information Processing Systems (NeurIPS)}
 }
 ```
+> CERBERUS는 집필 중인 신규 연구로, 인용 정보는 추후 추가됩니다.
 
-## 📧 **Connecting with Us?**
-
-If you have any questions, please feel free to send email to `jtang092@connect.hkust-gz.edu.cn`.
-
-
-## 📜 **Acknowledgment**
-This paper is supported by Guangdong Provincial Key Lab of Integrated Communication, Sensing and Computation for Ubiquitous Internet of Things (No.2023B1212010007), the Innovation and Technology Fund of HKSAR under grant number GHX/054/21GD, the Natural Science Foundation of Zhejiang Province, China, under No. LD24F020002, and National Science Fund for Distinguished Young Scholars (62025205).
-
-Also, this project is inspired by [Video-LLaMA](https://github.com/DAMO-NLP-SG/Video-LLaMA).
+## 📜 Acknowledgment
+이 프로젝트는 [Video-LLaMA](https://github.com/DAMO-NLP-SG/Video-LLaMA)와 [HAWK](https://github.com/jqtangust/hawk)에서 영감을 받았습니다.
+HAWK 원본 논문 관련 문의: `jtang092@connect.hkust-gz.edu.cn`

@@ -1,5 +1,7 @@
 # Tri-Branch Architecture: Appearance + Motion + Background
 
+> 📌 본 문서는 **신규 연구 CERBERUS**의 아키텍처 설계입니다. 베이스 HAWK(Dual-Branch)와의 구분은 [`../CLAUDE.md`](../CLAUDE.md), 문서 색인은 [`README.md`](README.md)를 참고하세요.
+
 ## Overview
 
 기존 Hawk 모델은 **Appearance(외형)**와 **Motion(움직임)** 2개 브랜치로 비디오를 분석했습니다.

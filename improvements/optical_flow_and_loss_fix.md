@@ -1,8 +1,10 @@
 # Improvements: Optical Flow Deduplication & Loss Direction Fix
 
+> 📌 본 문서는 **신규 연구 CERBERUS**(HAWK의 Tri-Branch 확장)에 적용된 코드 개선 기록입니다. 베이스 HAWK와의 구분은 [`../CLAUDE.md`](../CLAUDE.md)를 참고하세요.
+
 ## Overview
 
-Two architectural improvements were applied to the HAWK tri-branch framework to address computational inefficiency and a training objective misalignment.
+Two architectural improvements were applied to the CERBERUS tri-branch framework to address computational inefficiency and a training objective misalignment.
 
 ---
 
