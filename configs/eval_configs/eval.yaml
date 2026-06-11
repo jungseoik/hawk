@@ -13,7 +13,7 @@ model:
 
   # some ckpts could be download from Video_LLaMA-2-7B-Finetuned
   # https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-7B-Finetuned
-  llama_model: "/remote-home/share/jiaqitang/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+  llama_model: "/home/pia/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
 
   # Hawk Weight
   ckpt: '/remote-home/share/jiaqitang/Hawk_Ours/hawk/output/hawk_finetune/20250221045/checkpoint_10.pth' 

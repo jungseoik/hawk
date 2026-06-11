@@ -11,7 +11,7 @@ model:
   # If you want train models based on LLaMA-2-chat,
   # some ckpts could be download from our provided huggingface repo
   # i.e.  https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-13B-Finetuned
-  llama_model: "/remote-home/share/jiaqitang/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+  llama_model: "/home/pia/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
   # imagebind_ckpt_path: "/remote-home/share/jiaqitang/Video-LLaMA-2-7B-Finetuned"
 
   # The ckpt of vision branch after stage1 pretrained, 
@@ -32,7 +32,7 @@ model:
 
   for llama_2_chat:
   end_sym: "</s>"
-  prompt_path: "/remote-home/share/jiaqitang/Hawk_Ours/configs/prompts/alignment_image.txt"
+  prompt_path: "/home/pia/seoik/hawk/configs/prompts/alignment_image.txt"
   prompt_template: '[INST] <<SYS>>\n \n<</SYS>>\n\n{} [/INST] '
 
 datasets:
@@ -50,7 +50,7 @@ datasets:
       train:
         name: "blip_caption"
     num_video_query_token: 32
-    tokenizer_name: "/remote-home/share/jiaqitang/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+    tokenizer_name: "/home/pia/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
     model_type: "llama_v2" 
     
 run:

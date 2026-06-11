@@ -10,5 +10,7 @@ __pycache__/
 
 # Data & weights (integrated last; never commit)
 data/
+weights/
 *.pth
 *.ckpt
+*.bin
