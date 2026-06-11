@@ -1,0 +1,14 @@
+# Generated experiment artifacts
+experiments/out/
+scripts/setup_env.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Data & weights (integrated last; never commit)
+data/
+*.pth
+*.ckpt
