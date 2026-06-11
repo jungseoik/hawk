@@ -19,13 +19,6 @@ from torchvision import transforms
 import random as rnd
 import cv2  # Import OpenCV
 
-# Use a single OpenCV thread per process. DataLoader parallelism comes from
-# num_workers (one process per worker); letting each worker spawn OpenCV's
-# default thread pool oversubscribes CPU and, on a loaded/shared machine,
-# thrashes catastrophically (a single Farneback clip went 0.4s -> 200s+ under
-# load ~60). Pinning to 1 thread keeps per-sample optical flow at ~0.4s.
-cv2.setNumThreads(1)
-
 MAX_INT = registry.get("MAX_INT")
 decord.bridge.set_bridge("torch")
 
