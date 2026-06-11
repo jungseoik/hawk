@@ -8,6 +8,18 @@
 import os
 import sys
 
+# --- Compatibility shim (CERBERUS) ------------------------------------------
+# torchvision >= 0.17 removed the public `torchvision.transforms.functional_tensor`
+# module, but pytorchvideo 0.1.5 (pulled in via ImageBind) still imports it. The
+# functions live on in the private `_functional_tensor`. Alias it so the env built
+# by scripts/setup_env.sh (Blackwell torch cu128 + new torchvision) can import.
+try:  # pragma: no cover
+    import torchvision.transforms.functional_tensor  # noqa: F401
+except ModuleNotFoundError:
+    import torchvision.transforms._functional_tensor as _ft
+    sys.modules["torchvision.transforms.functional_tensor"] = _ft
+# ---------------------------------------------------------------------------
+
 from omegaconf import OmegaConf
 
 from hawk.common.registry import registry

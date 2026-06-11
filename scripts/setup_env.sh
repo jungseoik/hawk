@@ -75,14 +75,18 @@ if [ "${TIER}" = "--full" ]; then
   echo "[setup_env] installing av + ffmpeg via conda-forge (bundled libs, no sudo)..."
   conda install -y -n "${ENV_NAME}" -c conda-forge av ffmpeg
 
+  # opencv>=4.10 is required for NumPy 2.x compatibility (4.8.1.78 fails with
+  # "_ARRAY_API not found" against the numpy 2.x pulled by the analysis tier).
   run_pip install \
     "transformers==4.28.0" "tokenizers==0.13.3" \
     "sentencepiece==0.1.97" "accelerate==0.23.0" "peft==0.5.0" \
-    "opencv-python==4.8.1.78" "decord==0.6.0" \
+    "opencv-python>=4.10" "decord==0.6.0" \
     imageio imageio-ffmpeg pytorchvideo \
     "timm==0.9.7" "einops==0.8.1" "omegaconf==2.3.0" "iopath==0.1.10" \
     "spacy==3.8.4" "webdataset==0.2.57" "ftfy==6.3.1" "regex==2023.10.3" \
     tensorboard "gradio==5.17.1"
+  # NOTE: pytorchvideo 0.1.5 imports the removed torchvision.transforms.functional_tensor;
+  # hawk/__init__.py installs a compatibility alias so imports succeed on new torchvision.
   echo "[setup_env] downloading spaCy en_core_web_sm..."
   conda run -n "${ENV_NAME}" python -m spacy download en_core_web_sm || \
     echo "[setup_env] WARN: spaCy model download failed (retry online later)."
