@@ -7,6 +7,12 @@ __pycache__/
 *.pyc
 *.pyo
 .ipynb_checkpoints/
+*.egg-info/
+
+# Training outputs / logs
+hawk/runs/
+output/
+*.log
 
 # Data & weights (integrated last; never commit)
 data/
