@@ -14,11 +14,10 @@ CFG="${CFG:-configs/train_configs/stage1_pretrain.yaml}"
 NPROC="${NPROC:-2}"
 GPUS="${GPUS:-0,1}"
 
-: "${LLAMA_MODEL:?set LLAMA_MODEL to the llama-2-7b-chat-hf path}"
-: "${DATA_ROOT:?set DATA_ROOT to the WebVid data root}"
-
 echo "[run_stage1] env=${ENV_NAME} cfg=${CFG} gpus=${GPUS} nproc=${NPROC}"
-echo "[run_stage1] NOTE: edit ${CFG} llama_model/ckpt/data paths, or override via these env vars."
+echo "[run_stage1] llama_model is already wired in ${CFG} (local weights)."
+echo "[run_stage1] REMAINING: set WebVid paths in ${CFG} ->"
+echo "             datasets.webvid.build_info.{anno_dir,videos_dir}"
 
 NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES="${GPUS}" \
   conda run -n "${ENV_NAME}" torchrun --nproc_per_node="${NPROC}" --master_port=10000 \

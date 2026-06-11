@@ -15,11 +15,9 @@ NPROC="${NPROC:-2}"
 GPUS="${GPUS:-0,1}"
 ABLATION="${ABLATION:-cerberus_full}"
 
-: "${LLAMA_MODEL:?set LLAMA_MODEL}"
-: "${STAGE1_CKPT:?set STAGE1_CKPT (stage-1 pretrained checkpoint)}"
-: "${DATA_ROOT:?set DATA_ROOT}"
-
 echo "[run_stage2] env=${ENV_NAME} cfg=${CFG} ablation=${ABLATION} gpus=${GPUS}"
+echo "[run_stage2] llama_model + prompt_path already wired in ${CFG} (local)."
+echo "[run_stage2] REMAINING: set ckpt: (stage-1 output) and the anomaly dataset paths in ${CFG}."
 echo "[run_stage2] NOTE: ablation switches (background_branch/L_BL/L_dis) live in"
 echo "             experiments/configs/ablation.yaml — wire them into the cfg/model."
 
