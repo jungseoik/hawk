@@ -1,0 +1,23 @@
+# E4 — Complementarity Generality (plug-in ablation).
+# Show CVD (complementary decomposition + directional disentanglement objective)
+# is NOT specific to one backbone or task: plug it into other settings and check
+# for consistent gains. This is what de-couples the contribution from HAWK.
+plugin_ablation:
+  principle:
+    decomposition: "M⊙X + (1-M)⊙X = X"   # the static stream + L_dis
+    objective: "L_dis = (1+cos(z_m,z_b))/2"
+  backbones:
+    - name: video_llama_vicuna     # HAWK's backbone (primary)
+      role: primary
+    - name: alt_video_llm          # a second video-LLM backbone
+      role: generality_check
+  tasks:
+    - name: anomaly_understanding   # VAD testbed (primary)
+      datasets: [HAWK-7]
+    - name: general_video_caption   # not VAD — generality across task
+      datasets: [WebVid-eval]
+  protocol:
+    for_each: [backbone, task]
+    compare: [without_CVD, with_CVD]
+    expect: "with_CVD >= without_CVD consistently"
+  report: "delta table (with_CVD - without_CVD) across backbone x task cells"

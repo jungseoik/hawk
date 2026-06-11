@@ -1,0 +1,3 @@
+# generated experiment artifacts
+out/
+*.npz

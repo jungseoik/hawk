@@ -1,0 +1,42 @@
+{
+  "benchmark": "bg-critical-v0",
+  "description": "Background-critical diagnostic benchmark for CVD (paper E2). Data filled in last.",
+  "records": [
+    {
+      "clip_id": "dota_000123_ctx",
+      "source_dataset": "DoTA",
+      "video_path": "data/bg_critical/dota_000123.mp4",
+      "motion_sufficiency": "context_critical",
+      "anomaly": true,
+      "gt_description": "A car loses control on a snow-covered road at night.",
+      "scene_tokens": ["snow-covered", "road", "night", "highway"],
+      "motion_tokens": ["car", "loses", "control"],
+      "swap_group": null,
+      "swap_role": null
+    },
+    {
+      "clip_id": "swap_walk_safe",
+      "source_dataset": "synthetic-swap",
+      "video_path": "data/bg_critical/swap_walk_safe.mp4",
+      "motion_sufficiency": "context_critical",
+      "anomaly": false,
+      "gt_description": "A person walks on a sidewalk.",
+      "scene_tokens": ["sidewalk"],
+      "motion_tokens": ["person", "walks"],
+      "swap_group": "walk_person_01",
+      "swap_role": "safe_bg"
+    },
+    {
+      "clip_id": "swap_walk_highway",
+      "source_dataset": "synthetic-swap",
+      "video_path": "data/bg_critical/swap_walk_highway.mp4",
+      "motion_sufficiency": "context_critical",
+      "anomaly": true,
+      "gt_description": "A person stands in the middle of a highway.",
+      "scene_tokens": ["highway", "middle", "lane"],
+      "motion_tokens": ["person", "stands"],
+      "swap_group": "walk_person_01",
+      "swap_role": "dangerous_bg"
+    }
+  ]
+}

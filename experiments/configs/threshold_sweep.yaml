@@ -1,0 +1,15 @@
+# Optical-flow magnitude threshold sensitivity (paper: Analysis C).
+# tau controls the motion/static partition point. Hypothesis: too low => almost
+# everything is motion (static stream starved); too high => everything static
+# (motion stream starved); tau≈0.2 is the balance.
+threshold_sweep:
+  param: mag_threshold        # hawk/processors/video_processor.py::mag_threshold
+  values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.50]
+  default: 0.20
+  measure:
+    - motion_area_ratio       # fraction of pixels kept by motion mask
+    - background_area_ratio   # = 1 - motion_area_ratio
+    - BLEU-4
+    - Reasonability
+    - CDS                     # disentanglement quality vs partition point
+report: line plot of metric vs tau, mark the chosen 0.20

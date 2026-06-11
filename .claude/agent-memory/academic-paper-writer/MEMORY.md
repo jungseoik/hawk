@@ -1,2 +1,2 @@
-- [User Research Context](user_research_context.md) -- HAWK++ Tri-Branch paper author, Korean academic writing style
+- [User Research Context](user_research_context.md) -- CERBERUS paper author; principle-first CVD framing, HAWK demoted to baseline, C1-C5, z_a/z_m/z_b notation
 - [Paper Format Conventions](feedback_paper_format.md) -- Bilingual headings, blockquote math, figure placeholders

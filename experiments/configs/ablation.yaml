@@ -1,0 +1,30 @@
+# Component ablation matrix (paper: Ablation A).
+# Each row = one training run; flags map to model/loss switches.
+# Run via scripts/run_stage2.sh with --ablation <name> (override hook).
+ablation:
+  - name: dual_branch_baseline      # HAWK special case: no static stream
+    background_branch: false
+    L_BL: false
+    L_dis: false
+  - name: add_static_branch         # +static visual stream only
+    background_branch: true
+    L_BL: false
+    L_dis: false
+  - name: add_static_plus_LBL       # +static-language supervision
+    background_branch: true
+    L_BL: true
+    L_dis: false
+  - name: add_Ldis_buggy            # wrong direction (1 - cos)
+    background_branch: true
+    L_BL: false
+    L_dis: "1-cos"
+  - name: add_Ldis_fixed            # correct direction (1+cos)/2
+    background_branch: true
+    L_BL: false
+    L_dis: "(1+cos)/2"
+  - name: cerberus_full             # full model
+    background_branch: true
+    L_BL: true
+    L_dis: "(1+cos)/2"
+
+metrics: [BLEU-1, BLEU-2, BLEU-3, BLEU-4, Reasonability, Detail, Consistency, CDS]
