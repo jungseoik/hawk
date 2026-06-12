@@ -107,18 +107,31 @@ python scripts/extract_webvid_parquet.py \
 
 ---
 
-## 4. 두 디스크 분산 (큰 곳 + 작은 곳) — 선택
+## 4. 추출 + 두 디스크 분산 (자동) — `build_webvid_split.py`
 
-WebvidDataset은 단일 `videos_dir`(+`page_dir/id.mp4`)와 `anno_dir`(CSV 전부 concat)을 읽는다. 물리적으로 두 디스크에 나눠도 **심볼릭링크 union**으로 코드 수정 없이 합칠 수 있다.
+3절의 단일 추출 대신, **80/20 분산 + 심볼릭 union을 한 번에** 처리하는 오케스트레이터를 쓴다. WebvidDataset은 단일 `videos_dir`(+`page_dir/id.mp4`)와 `anno_dir`(CSV concat)을 읽으므로, 물리적으로 두 디스크에 나눠도 **심볼릭 union**으로 코드 수정 없이 합쳐진다.
+
 ```bash
-# 예: 일부 샤드는 /data/pia(큰 곳), 일부는 sdb2(작은 곳)에 추출한 뒤
-mkdir -p /data/pia/webvid_union/videos /data/pia/webvid_union/annotations
-ln -s /data/pia/webvid_extracted/videos/p000{00..79}        /data/pia/webvid_union/videos/    # 큰 곳
-ln -s /home/pia/seoik/hawk/data/webvid_small/videos/p000{80..99} /data/pia/webvid_union/videos/  # 작은 곳
-cp /data/pia/webvid_extracted/annotations/*.csv  /data/pia/webvid_union/annotations/
-cp /home/pia/seoik/hawk/data/webvid_small/annotations/*.csv /data/pia/webvid_union/annotations/
-# config의 videos_dir=/data/pia/webvid_union/videos, anno_dir=/data/pia/webvid_union/annotations
+# 라우팅 플랜만 미리 보기 (추출 안 함)
+python scripts/build_webvid_split.py --dry-run
+
+# 실제: 매 5번째 샤드(20%) -> 작은 곳(sdb2), 나머지(80%) -> 큰 곳(/data/pia)
+#       각 디스크가 --cap(기본 0.80) 넘으면 그 디스크엔 중단(하드 가드)
+python scripts/build_webvid_split.py     # 기본 경로: big=/data/pia/webvid_extracted,
+                                         #            small=.../data/webvid_small,
+                                         #            union=/data/pia/webvid_union
 ```
+- **page_dir 고유성**: repo별 prefix(`m`=메인, `a`=part_0, `b`=part_1) → 샤드번호 충돌 방지.
+- **80% 가드**: `shutil.disk_usage`로 대상 디스크 사용률이 `--cap` 이상이면 그 디스크 쓰기를 건너뛴다(양쪽 80% 초과 방지).
+- **재시작 가능**: 이미 추출된 `videos/<page_dir>` + CSV는 건너뜀 → 다운로드 진행 중 부분 실행/중단 후 재실행 안전.
+- 결과: `<union>/videos/<page_dir>`(양 디스크로의 심볼릭) + `<union>/annotations/*.csv`.
+
+### 용량 계산 (2M ≈ 264만, 추출본 ~1.18TB, 80/20)
+| 디스크 | 몫 | 추출본 | 피크(+parquet) | 비율 |
+|---|---|---|---|---|
+| 큰곳 `/data/pia`(3.4T) | 80% | ~950GB | ~2.1TB | ~62% → parquet 삭제 후 ~28% |
+| 작은곳 sdb2(878G) | 20% | ~238GB | — | ~61% |
+→ 양쪽 모두 80% 미만.
 
 ---
 
