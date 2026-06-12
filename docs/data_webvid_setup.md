@@ -72,6 +72,17 @@ find <local-dir>/.cache -name "*.lock" -delete
 # 다시 위 hf download 실행 (HF_HUB_ENABLE_HF_TRANSFER=1)
 ```
 
+### ✅ 권장: stall 자동복구 watchdog (대용량·장시간 다운로드)
+위 cancel/resume를 자동화한 스크립트. 바이트가 `--stall`초 동안 안 늘면 알아서 kill→부분파일 삭제→재시작한다(이미 받은 샤드는 hf가 건너뜀). 2M처럼 수 시간 걸리는 다운로드는 이걸로 무인 실행한다.
+```bash
+nohup python scripts/resilient_hf_download.py \
+  --repos jxie/webvid_10m jxie/webvid_10m_part_0 jxie/webvid_10m_part_1 \
+  --base /data/pia --include "data/*.parquet" --stall 300 --poll 20 \
+  > /data/pia/watchdog.log 2>&1 &
+```
+- `--stall 300`: 기존 파일 해시 검증(수 분, 바이트 무성장)으로 인한 false-stall을 피하려 300초로 둔다(실 다운로드는 계속 성장하므로 영향 없음).
+- 진척 확인: `ls <dir>/data/*.parquet | wc -l`, `du -sh <dir>`, `tail watchdog.log`.
+
 ---
 
 ## 3. 추출 (parquet → 디스크 mp4 + CSV)
