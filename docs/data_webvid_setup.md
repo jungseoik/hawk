@@ -107,9 +107,22 @@ python scripts/extract_webvid_parquet.py \
 
 ---
 
-## 4. 추출 + 두 디스크 분산 (자동) — `build_webvid_split.py`
+## 4. 추출 — `build_webvid_split.py`
 
-3절의 단일 추출 대신, **80/20 분산 + 심볼릭 union을 한 번에** 처리하는 오케스트레이터를 쓴다. WebvidDataset은 단일 `videos_dir`(+`page_dir/id.mp4`)와 `anno_dir`(CSV concat)을 읽으므로, 물리적으로 두 디스크에 나눠도 **심볼릭 union**으로 코드 수정 없이 합쳐진다.
+> **결정: 단일 디스크 사용.** 추출본은 ~1.18TB인데 `/data/pia`에 2.3T+ 여유가 있어 용량이 제약이 아니다. 두 디스크 분산은 순전히 용량 대비책이었으므로, 단순성·I/O 일관성을 위해 **한 디스크에 모은다**. (분산 모드는 아래에 참고용으로 남김.)
+
+### 4a. 단일 디스크 (권장)
+```bash
+python scripts/build_webvid_split.py --single /data/pia/webvid_extracted
+```
+- 3개 repo(main/part_0/part_1)를 prefix(m/a/b)로 한 폴더에 추출 → `videos/<prefix+num>/*.mp4` + `annotations/*.csv`. **union 불필요.**
+- 80% 용량 가드·재시작(이미 추출된 page_dir 건너뜀) 유지.
+- config: `videos_dir=/data/pia/webvid_extracted/videos`, `anno_dir=/data/pia/webvid_extracted/annotations`.
+- 추출 후 parquet(1.1TB) 삭제로 공간 회수 가능.
+
+### 4b. 두 디스크 80/20 분산 (참고용, 용량 부족 시)
+
+용량이 부족하면 **80/20 분산 + 심볼릭 union을 한 번에** 처리하는 모드를 쓴다. WebvidDataset은 단일 `videos_dir`(+`page_dir/id.mp4`)와 `anno_dir`(CSV concat)을 읽으므로, 물리적으로 두 디스크에 나눠도 **심볼릭 union**으로 코드 수정 없이 합쳐진다.
 
 ```bash
 # 라우팅 플랜만 미리 보기 (추출 안 함)

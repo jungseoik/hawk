@@ -88,10 +88,38 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--union-only", action="store_true")
     ap.add_argument("--max-shards", type=int, default=0, help="process only first N shards (testing)")
+    ap.add_argument("--single", default=None,
+                    help="extract ALL repos into this one dir (no two-disk split, no union)")
     args = ap.parse_args()
 
     if args.union_only:
         build_union(args.big, args.small, args.union)
+        return
+
+    if args.single:
+        # Single-disk mode: capacity is not a constraint, so put everything on one
+        # fast local disk. Per-repo prefix keeps page_dir unique; no symlink union.
+        shards = enumerate_shards(DEFAULT_REPOS)
+        if args.max_shards:
+            shards = shards[:args.max_shards]
+        print(f"[single] {len(shards)} shards -> {args.single} | cap={args.cap:.0%}", flush=True)
+        done = skip = 0
+        for i, (shard, prefix, num) in enumerate(shards):
+            page_dir = f"{prefix}{num}"
+            if already_done(args.single, page_dir):
+                skip += 1
+                continue
+            if args.dry_run:
+                continue
+            if used_frac(args.single) >= args.cap:
+                print(f"[GUARD] {args.single} at {used_frac(args.single):.0%} >= {args.cap:.0%} — stop", flush=True)
+                break
+            c = extract_shard(shard, args.single, page_dir)
+            done += c
+            if (i + 1) % 25 == 0:
+                print(f"[single] {i+1}/{len(shards)} shards, {done} videos, disk={used_frac(args.single):.0%}", flush=True)
+        print(f"[single] DONE shards_skipped={skip} videos={done} -> {args.single}", flush=True)
+        print(f"[done] set videos_dir={args.single}/videos anno_dir={args.single}/annotations", flush=True)
         return
 
     shards = enumerate_shards(DEFAULT_REPOS)
