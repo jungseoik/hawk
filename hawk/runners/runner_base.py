@@ -627,14 +627,17 @@ class RunnerBase:
             cached_file = download_cached_file(
                 url_or_filename, check_hash=False, progress=True
             )
-            checkpoint = torch.load(cached_file, map_location=self.device, strict=False)
+            checkpoint = torch.load(cached_file, map_location=self.device)
         elif os.path.isfile(url_or_filename):
-            checkpoint = torch.load(url_or_filename, map_location=self.device, strict=False)
+            checkpoint = torch.load(url_or_filename, map_location=self.device)
         else:
             raise RuntimeError("checkpoint url or path is invalid")
 
+        # Checkpoints store ONLY trainable params (frozen ViT/Q-Former/LLaMA are
+        # dropped in _save_checkpoint), so load non-strictly. NOTE: `strict` belongs
+        # to load_state_dict, not torch.load — the latter raised TypeError on torch 2.x.
         state_dict = checkpoint["model"]
-        self.unwrap_dist_model(self.model).load_state_dict(state_dict)
+        self.unwrap_dist_model(self.model).load_state_dict(state_dict, strict=False)
 
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         if self.scaler and "scaler" in checkpoint:

@@ -18,19 +18,33 @@ from hawk.datasets.data_utils import prepare_sample
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-# 获取当前目录的路径
-current_dir = os.path.dirname(os.path.realpath(__file__))
-current_dir = os.path.dirname(current_dir)
+# TensorBoard writer — created lazily, ONCE, on the main process only, under the
+# run's own output_dir (registered by the runner). This keeps each job's curves
+# separate (vs. the old shared hawk/runs/) and prevents DDP ranks from
+# double-writing. On resume a new job_id dir => the resumed segment is a separate
+# TB run (clean per-job tracking).
+_tb_writer = None
+_tb_initialized = False
 
-# 指定日志的保存位置
-log_dir = os.path.join(current_dir, 'runs')
 
-# 检查目录是否存在，如果不存在则创建它
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
-# 创建一个 SummaryWriter 对象
-writer = SummaryWriter(log_dir)
+def get_tb_writer():
+    global _tb_writer, _tb_initialized
+    if _tb_initialized:
+        return _tb_writer
+    _tb_initialized = True
+    if not is_main_process():
+        _tb_writer = None
+        return None
+    try:
+        out_dir = registry.get_path("output_dir")
+    except Exception:
+        out_dir = None
+    log_dir = os.path.join(out_dir, "tensorboard") if out_dir else \
+        os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "runs")
+    os.makedirs(log_dir, exist_ok=True)
+    _tb_writer = SummaryWriter(log_dir)
+    logging.info("TensorBoard logging to {}".format(log_dir))
+    return _tb_writer
 
 class BaseTask:
     def __init__(self, **kwargs):
@@ -288,13 +302,15 @@ class BaseTask:
             background_loss = loss_dict["loss_background"].item()
             middle_loss_bg = mse_loss_bg.item()
 
-            writer.add_scalar('Loss/total', total_loss, self.all_iter)
-            writer.add_scalar('Learning Rate', lr, self.all_iter)
-            writer.add_scalar('Loss/ori', ori_loss, self.all_iter)
-            writer.add_scalar('Loss/middle', middle_loss, self.all_iter)
-            writer.add_scalar('Loss/motion', motion_loss, self.all_iter)
-            writer.add_scalar('Loss/background', background_loss, self.all_iter)
-            writer.add_scalar('Loss/middle_bg', middle_loss_bg, self.all_iter)
+            tb = get_tb_writer()
+            if tb is not None:
+                tb.add_scalar('Loss/total', total_loss, self.all_iter)
+                tb.add_scalar('Learning Rate', lr, self.all_iter)
+                tb.add_scalar('Loss/ori', ori_loss, self.all_iter)
+                tb.add_scalar('Loss/middle', middle_loss, self.all_iter)
+                tb.add_scalar('Loss/motion', motion_loss, self.all_iter)
+                tb.add_scalar('Loss/background', background_loss, self.all_iter)
+                tb.add_scalar('Loss/middle_bg', middle_loss_bg, self.all_iter)
             self.all_iter = self.all_iter + 1
 
         # after train_epoch()
