@@ -98,6 +98,17 @@ s = ds[0]; print({k: getattr(v,'shape',v) for k,v in s.items() if k.startswith('
 PY
 ```
 
+**Reclaim space — delete the parquet (after extraction is verified).** The parquet
+files were only the download container; the extracted mp4 + CSV are now the
+dataset, so the ~1.1 TB of parquet is fully redundant. Delete it **only after**
+confirming extraction finished (`videos/` page_dir count == shard count and the
+verify above passes). Skip this if you plan to re-extract (e.g. retune the flow
+threshold).
+```bash
+ls /data/pia/webvid_extracted/videos | wc -l     # == number of downloaded shards?
+rm -rf /data/pia/webvid_10m*/data                # reclaim ~1.1 TB
+```
+
 ---
 
 ## ④ Smoke test (no full training)

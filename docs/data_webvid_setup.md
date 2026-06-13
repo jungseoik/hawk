@@ -118,7 +118,12 @@ python scripts/build_webvid_split.py --single /data/pia/webvid_extracted
 - 3개 repo(main/part_0/part_1)를 prefix(m/a/b)로 한 폴더에 추출 → `videos/<prefix+num>/*.mp4` + `annotations/*.csv`. **union 불필요.**
 - 80% 용량 가드·재시작(이미 추출된 page_dir 건너뜀) 유지.
 - config: `videos_dir=/data/pia/webvid_extracted/videos`, `anno_dir=/data/pia/webvid_extracted/annotations`.
-- 추출 후 parquet(1.1TB) 삭제로 공간 회수 가능.
+
+**추출 완료 후 parquet 삭제(권장).** parquet는 다운로드 컨테이너였을 뿐이고 추출된 mp4+CSV가 곧 데이터셋이므로, parquet ~1.1TB는 완전히 중복이다. **추출 완료를 검증한 뒤** 삭제해 공간을 회수한다(재추출 계획이 있으면 보관).
+```bash
+ls /data/pia/webvid_extracted/videos | wc -l   # 받은 샤드 수와 일치하는지 확인
+rm -rf /data/pia/webvid_10m*/data               # ~1.1TB 회수
+```
 
 ### 4b. 두 디스크 80/20 분산 (참고용, 용량 부족 시)
 

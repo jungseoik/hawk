@@ -157,6 +157,7 @@ python app.py --cfg-path configs/eval_configs/eval.yaml --model_type llama_v2 --
 python scripts/resilient_hf_download.py --repos jxie/webvid_10m jxie/webvid_10m_part_0 jxie/webvid_10m_part_1 \
   --base /data/pia --include "data/*.parquet" --stall 300 --min-mbps 3
 python scripts/build_webvid_split.py --single /data/pia/webvid_extracted
+# 추출 검증 후 parquet(~1.1TB) 삭제로 공간 회수: rm -rf /data/pia/webvid_10m*/data
 ```
 
 ### 💾 Stage 2 데이터: 이상 탐지 (HAWK 7-dataset)
