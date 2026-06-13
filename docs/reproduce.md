@@ -137,9 +137,35 @@ NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master
   train.py --cfg-path configs/train_configs/stage2_finetune.yaml
 ```
 - Total steps = `max_epoch × iters_per_epoch` (edit to your compute budget).
-- TensorBoard: `Loss/total`, `Loss/ori`, `Loss/motion`, `Loss/background`,
-  `Loss/middle` (app↔motion), `Loss/middle_bg` (motion↔background).
 - Stage-2 anomaly data (HAWK 7-dataset): see README → Dataset Preparation.
+
+### Training management (logging / checkpoints / resume)
+
+**CLI logs** — per-iter losses print live: `totalloss / oriloss / middleloss(app↔motion) /
+motionloss / backgroundloss / middleloss_bg(motion↔background)` + `lr / time / max mem`.
+
+**TensorBoard** — one event dir **per job**, main-process only:
+```bash
+tensorboard --logdir <output_dir>/<job_id>/tensorboard      # scalars: Loss/*, Learning Rate
+```
+
+**Checkpoints** — saved every epoch to `<output_dir>/<job_id>/checkpoint_<N>.pth`
+(contains trainable params + **optimizer + AMP scaler + epoch + config**).
+
+**Stop & resume (바통터치)** — kill anytime; resume from the last saved epoch by
+pointing `resume_ckpt_path` at a checkpoint. It restores model+optimizer+scaler and
+continues at `epoch N+1`:
+```yaml
+run:
+  resume_ckpt_path: /data/pia/stage1_out/<job_id>/checkpoint_3.pth   # -> resumes at epoch 4
+```
+```bash
+torchrun --nproc_per_node=2 train.py --cfg-path configs/train_configs/stage1_pretrain.yaml
+# log shows: "Resume checkpoint from ..." then "Start training epoch 4"
+```
+> Resume granularity is per-epoch (set `iters_per_epoch` so checkpoints land at a
+> useful cadence). A quick stop/resume sanity config: `stage1_validate.yaml`
+> (3 epochs × 15 iters, ~1 min, checkpoints every epoch).
 
 ---
 
