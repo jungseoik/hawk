@@ -5,6 +5,7 @@
 
 | 문서 | 내용 |
 |---|---|
+| [`reproduce.md`](reproduce.md) | **⭐ git clone → 학습까지 재현 가이드** — 환경(Blackwell)·가중치·데이터(다운로드·추출)·스모크·학습·평가 단계별 + 트러블슈팅 |
 | [`tri-branch-architecture.md`](tri-branch-architecture.md) | Tri-Branch(Appearance + Motion + **Background**) 아키텍처 전체 설계 — 브랜치 구조, 상보적 Loss, 데이터 파이프라인, 수정 파일 목록, TensorBoard 지표 |
 | [`cerberus-research-plan.md`](cerberus-research-plan.md) | 논문 reframing(CVD 원리)·기여(C1–C5)·실험(E1–E4) 마스터 플랜 |
 | [`data_webvid_setup.md`](data_webvid_setup.md) | **WebVid 데이터 준비 재현 절차** — 10M 소스(jxie)에서 다운로드·추출·분산·학습 연결, 함정/용량/검증 기록 |

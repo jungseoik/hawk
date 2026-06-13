@@ -100,11 +100,20 @@ Total Loss = L_appearance + 0.1·L_motion + 0.1·L_background
 
 ## ▶️ Getting Started
 
+> 🚀 **재현(Reproduce) 전체 경로**: git clone → 환경 → 가중치 → 데이터(다운로드·추출) → 스모크 → 학습 → 평가까지 한 번에 따라할 수 있는 단일 가이드는 **[`docs/reproduce.md`](docs/reproduce.md)** 를 보세요. 아래는 요약입니다.
+
 ### 🪒 Installation
+
+> ⚠️ 업스트림 `environment.yml`은 `torch 2.0.1+cu117`로 고정되어 **NVIDIA Blackwell(sm_120)에서 학습이 실행되지 않습니다.** 최신/Blackwell GPU에서는 아래 Blackwell 호환 스크립트를 사용하세요.
+
 ```bash
-apt install ffmpeg
-conda env create -f environment.yml
-conda activate hawk
+# (권장) Blackwell 호환 — cerberus env (torch cu128) + 전체 학습 스택
+bash scripts/setup_env.sh --full
+conda activate cerberus
+pip install -e .
+
+# (구형 GPU·원본 재현용) HAWK 원본 환경
+# apt install ffmpeg && conda env create -f environment.yml && conda activate hawk
 ```
 
 ### 🏰 Pretrained / Fine-tuned Model
@@ -139,7 +148,18 @@ python app.py --cfg-path configs/eval_configs/eval.yaml --model_type llama_v2 --
 
 ## 🖥️ Training
 
-### 💾 Dataset Preparation
+> 전체 재현 절차(환경·가중치·데이터·스모크·학습)는 **[`docs/reproduce.md`](docs/reproduce.md)** 에 단계별로 정리되어 있습니다. 아래는 데이터/명령 요약입니다.
+
+### 💾 Stage 1 데이터: WebVid (사전학습)
+원본 WebVid는 배포 중단되어, 영상 바이트가 내장된 미러 `jxie/webvid_10m`(WebVid-10M)에서 받아 개별 mp4로 추출합니다. 다운로드(stall 자동복구)·추출·용량·함정까지 재현 절차는 **[`docs/data_webvid_setup.md`](docs/data_webvid_setup.md)** 참고.
+```bash
+# 다운로드(~2M) + 추출(개별 mp4) — 상세/규모선택은 위 문서
+python scripts/resilient_hf_download.py --repos jxie/webvid_10m jxie/webvid_10m_part_0 jxie/webvid_10m_part_1 \
+  --base /data/pia --include "data/*.parquet" --stall 300 --min-mbps 3
+python scripts/build_webvid_split.py --single /data/pia/webvid_extracted
+```
+
+### 💾 Stage 2 데이터: 이상 탐지 (HAWK 7-dataset)
 - Hawk 데이터셋(비디오 + 어노테이션): [HuggingFace DOWNLOAD](https://huggingface.co/datasets/Jiaqi-hkust/hawk)
 - 어노테이션만: [Google Drive DOWNLOAD](https://drive.google.com/file/d/1WCnizldWZvtS4Yg5SX7ay5C3kUQfz-Eg/view?usp=sharing)
 - 원 출처: [CUHK_Avenue](https://www.cse.cuhk.edu.hk/leojia/projects/detectabnormal/dataset.html), [DoTA](https://github.com/MoonBlvd/Detection-of-Traffic-Anomaly), [Ped1/Ped2](http://www.svcl.ucsd.edu/projects/anomaly/dataset.htm), [ShanghaiTech](https://svip-lab.github.io/dataset/campus_dataset.html), [UBNormal](https://github.com/lilygeorgescu/UBnormal/), [UCF_Crime](https://www.crcv.ucf.edu/projects/real-world/)
@@ -166,17 +186,23 @@ llama_model: ".../Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
 ckpt: ".../checkpoint.pth"
 ```
 
+### 🧪 스모크 테스트 (본 학습 전 점검)
+```bash
+conda run -n cerberus python scripts/smoke_test.py --frames 8                 # 모델 빌드 + 더미 forward
+torchrun --nproc_per_node=1 train.py --cfg-path configs/train_configs/stage1_smoke.yaml  # 5 iters 실학습
+```
+
 ### 🖥️ To Train
 ```bash
-# 사전학습
-NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='10000' \
+# 사전학습 (Stage 1)
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port='10000' \
   train.py --cfg-path ./configs/train_configs/stage1_pretrain.yaml
 
-# 파인튜닝
-NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port='12001' \
+# 파인튜닝 (Stage 2) — stage2 config의 ckpt:를 Stage1 출력으로 지정
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port='12001' \
   train.py --cfg-path ./configs/train_configs/stage2_finetune.yaml
 ```
-*리소스: stage 1·2 모두 4 × RTX A6000 48G*
+*검증 환경: 2 × RTX PRO 6000 (Blackwell, 96G), batch 1·32프레임·3스트림 ≈ 62GB VRAM. 원본 HAWK는 4 × A6000 48G.*
 
 ### 📊 Tri-Branch 학습 (CERBERUS)
 각 비디오에서 3종류 입력이 자동 생성됩니다:
