@@ -1,55 +1,63 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Paper-grade training launcher — captures full provenance so any loss/metric
-# can be traced back later (for ablation tables & the paper).
+# Chunked-training launcher with provenance + auto-resume.
 #
-# Creates a per-run directory and records: git commit + dirty diff, the exact
-# config, GPU/env info, and the full training stdout/stderr log. TensorBoard and
-# checkpoints go INSIDE this run dir (via --options run.output_dir=...), so each
-# run/ablation is fully self-contained and comparable.
+# Designed for stop-and-continue training (interrupt anytime for other work,
+# relaunch to pick up where you left off). One STABLE run dir per logical
+# experiment; checkpoints + TensorBoard accumulate there across all chunks, and
+# each relaunch auto-resumes from the latest checkpoint. TB curves stay a single
+# continuous line (global step = epoch*iters + i).
 #
 # Usage:
-#   bash scripts/train_run.sh <cfg> [run_name] [gpus] [nproc]
-#   bash scripts/train_run.sh configs/train_configs/stage1_main.yaml stage1_main 0,1 2
-# Resume: pass a config whose run.resume_ckpt_path points at a checkpoint, OR
-#   append --options at call sites; the launcher forwards none by default.
+#   bash scripts/train_run.sh <cfg> <run_name> [gpus] [nproc]
+#   bash scripts/train_run.sh configs/train_configs/stage1_main.yaml core 0,1 2
+#   # ...train a while, Ctrl-C / kill for other work, then LATER just rerun the
+#   #    SAME command -> it auto-resumes from the latest checkpoint.
+#
+# Env: RUNS_ROOT (default /data/pia/runs), ENV_NAME (default cerberus),
+#      MASTER_PORT (default 10000), FRESH=1 to ignore existing checkpoints.
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
-REPO="$(pwd)"
 
-CFG="${1:?usage: train_run.sh <cfg> [run_name] [gpus] [nproc]}"
-NAME="${2:-$(basename "${CFG%.yaml}")}"
+CFG="${1:?usage: train_run.sh <cfg> <run_name> [gpus] [nproc]}"
+NAME="${2:?provide a STABLE run_name (reused across chunks), e.g. 'core'}"
 GPUS="${3:-0,1}"
 NPROC="${4:-$(echo "$GPUS" | tr ',' '\n' | grep -c .)}"
 ENV_NAME="${ENV_NAME:-cerberus}"
 RUNS_ROOT="${RUNS_ROOT:-/data/pia/runs}"
 
+RUN_DIR="${RUNS_ROOT}/${NAME}"
+JOB_ID="main"                       # fixed => checkpoints/TB land in RUN_DIR/main across chunks
+OUT_JOB="${RUN_DIR}/${JOB_ID}"
+mkdir -p "$OUT_JOB"
+
+# ---- auto-resume: newest checkpoint in this run dir ----
+RESUME=""
+if [ "${FRESH:-0}" != "1" ]; then
+  LATEST="$(ls -1 "${OUT_JOB}"/checkpoint_*.pth 2>/dev/null | sort -V | tail -1 || true)"
+  [ -n "$LATEST" ] && RESUME="$LATEST"
+fi
+
+# ---- provenance (appended per chunk) ----
 TS="$(date +%Y%m%d-%H%M%S)"
-RUN_DIR="${RUNS_ROOT}/${NAME}-${TS}"
-mkdir -p "$RUN_DIR"
-
-# ---- provenance ----
 {
-  echo "run_name   : $NAME"
-  echo "timestamp  : $TS"
+  echo "==== chunk @ $TS ===="
   echo "config     : $CFG"
-  echo "gpus       : $GPUS   nproc: $NPROC"
-  echo "git_commit : $(git rev-parse HEAD)"
-  echo "git_branch : $(git rev-parse --abbrev-ref HEAD)"
-  echo "git_dirty  : $(git status --porcelain | wc -l) changed files"
-} > "$RUN_DIR/run_info.txt"
-git status --porcelain > "$RUN_DIR/git_status.txt" || true
-git diff > "$RUN_DIR/git_diff.patch" || true          # exact uncommitted state
+  echo "gpus       : $GPUS  nproc: $NPROC"
+  echo "git_commit : $(git rev-parse HEAD)   dirty: $(git status --porcelain | wc -l)"
+  echo "resume_from: ${RESUME:-<fresh start>}"
+} >> "$RUN_DIR/run_info.txt"
 cp "$CFG" "$RUN_DIR/config.yaml"
-conda run -n "$ENV_NAME" python -c "import torch;print('torch',torch.__version__,'cuda',torch.cuda.is_available())" >> "$RUN_DIR/run_info.txt" 2>/dev/null || true
-nvidia-smi --query-gpu=index,name,memory.total --format=csv >> "$RUN_DIR/run_info.txt" 2>/dev/null || true
+git diff > "$RUN_DIR/git_diff_${TS}.patch" 2>/dev/null || true
 
-echo "[train_run] RUN_DIR=$RUN_DIR"
-echo "[train_run] logging to $RUN_DIR/train.log  (tail -f to watch)"
-echo "[train_run] TensorBoard/checkpoints -> $RUN_DIR/<job_id>/"
+echo "[train_run] RUN_DIR=$RUN_DIR  (job=$JOB_ID)"
+echo "[train_run] resume: ${RESUME:-FRESH}"
+echo "[train_run] log -> $RUN_DIR/train.log   | TB -> $OUT_JOB/tensorboard"
 
-# ---- launch (checkpoints + TB land under RUN_DIR via output_dir override) ----
-NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES="$GPUS" PYTHONUNBUFFERED=1 \
+OPTS=(run.output_dir="$RUN_DIR")
+[ -n "$RESUME" ] && OPTS+=(run.resume_ckpt_path="$RESUME")
+
+HAWK_JOB_ID="$JOB_ID" NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES="$GPUS" PYTHONUNBUFFERED=1 \
   conda run -n "$ENV_NAME" torchrun --nproc_per_node="$NPROC" --master_port="${MASTER_PORT:-10000}" \
-  train.py --cfg-path "$CFG" --options run.output_dir="$RUN_DIR" 2>&1 | tee -a "$RUN_DIR/train.log"
+  train.py --cfg-path "$CFG" --options "${OPTS[@]}" 2>&1 | tee -a "$RUN_DIR/train.log"

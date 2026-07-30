@@ -89,7 +89,10 @@ def main():
     # os.environ["NCCL_BLOCKING_WAIT"] = "1"
 
     # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
-    job_id = now()
+    # HAWK_JOB_ID lets a chunked/resumed run reuse ONE output subdir (checkpoints +
+    # TensorBoard accumulate in the same place across stop/resume), instead of a new
+    # timestamp dir per launch.
+    job_id = os.environ.get("HAWK_JOB_ID") or now()
 
     cfg = Config(parse_args())
 

@@ -302,15 +302,19 @@ class BaseTask:
             background_loss = loss_dict["loss_background"].item()
             middle_loss_bg = mse_loss_bg.item()
 
+            # Global step = epoch * iters_per_epoch + i. Derived from the resumed
+            # epoch (not a per-process counter), so TensorBoard curves stay a single
+            # continuous line across stop/resume chunks — essential for chunked training.
+            gstep = epoch * iters_per_epoch + i
             tb = get_tb_writer()
             if tb is not None:
-                tb.add_scalar('Loss/total', total_loss, self.all_iter)
-                tb.add_scalar('Learning Rate', lr, self.all_iter)
-                tb.add_scalar('Loss/ori', ori_loss, self.all_iter)
-                tb.add_scalar('Loss/middle', middle_loss, self.all_iter)
-                tb.add_scalar('Loss/motion', motion_loss, self.all_iter)
-                tb.add_scalar('Loss/background', background_loss, self.all_iter)
-                tb.add_scalar('Loss/middle_bg', middle_loss_bg, self.all_iter)
+                tb.add_scalar('Loss/total', total_loss, gstep)
+                tb.add_scalar('Learning Rate', lr, gstep)
+                tb.add_scalar('Loss/ori', ori_loss, gstep)
+                tb.add_scalar('Loss/middle', middle_loss, gstep)
+                tb.add_scalar('Loss/motion', motion_loss, gstep)
+                tb.add_scalar('Loss/background', background_loss, gstep)
+                tb.add_scalar('Loss/middle_bg', middle_loss_bg, gstep)
             self.all_iter = self.all_iter + 1
 
         # after train_epoch()
