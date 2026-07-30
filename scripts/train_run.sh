@@ -58,6 +58,8 @@ echo "[train_run] log -> $RUN_DIR/train.log   | TB -> $OUT_JOB/tensorboard"
 OPTS=(run.output_dir="$RUN_DIR")
 [ -n "$RESUME" ] && OPTS+=(run.resume_ckpt_path="$RESUME")
 
+# --no-capture-output: stream stdout/stderr live (plain `conda run` buffers the pipe,
+# leaving train.log empty until exit).
 HAWK_JOB_ID="$JOB_ID" NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES="$GPUS" PYTHONUNBUFFERED=1 \
-  conda run -n "$ENV_NAME" torchrun --nproc_per_node="$NPROC" --master_port="${MASTER_PORT:-10000}" \
+  conda run --no-capture-output -n "$ENV_NAME" torchrun --nproc_per_node="$NPROC" --master_port="${MASTER_PORT:-10000}" \
   train.py --cfg-path "$CFG" --options "${OPTS[@]}" 2>&1 | tee -a "$RUN_DIR/train.log"

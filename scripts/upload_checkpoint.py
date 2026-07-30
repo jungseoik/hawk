@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--ckpt", default=None, help="explicit checkpoint file")
     ap.add_argument("--run-dir", default=None, help="run dir; used with --latest")
     ap.add_argument("--latest", action="store_true", help="pick newest checkpoint_*.pth under run-dir/main")
+    ap.add_argument("--every", type=int, default=0, help="with --latest: only upload if epoch %% N == 0 (milestones)")
     ap.add_argument("--also", nargs="*", default=[], help="extra files to upload (run_info, config, log)")
     ap.add_argument("--token", default=None)
     args = ap.parse_args()
@@ -46,6 +47,12 @@ def main():
         ckpt = cks[-1] if cks else None
     if not ckpt or not os.path.isfile(ckpt):
         print(f"[upload] no checkpoint to upload (ckpt={ckpt})"); sys.exit(0)
+
+    if args.every and args.latest:
+        n = int(''.join(filter(str.isdigit, os.path.basename(ckpt))) or -1)
+        if n % args.every != 0:
+            print(f"[upload] latest checkpoint epoch {n} not a multiple of {args.every} — skip (milestone-only)")
+            sys.exit(0)
 
     existing = set(api.list_repo_files(args.repo, repo_type="model"))
     to_upload = [(ckpt, f"{args.folder}/{os.path.basename(ckpt)}")]
