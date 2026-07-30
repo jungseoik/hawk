@@ -37,12 +37,12 @@ run:
   # ~3-day main pretrain. batch 2 = throughput/headroom balance (~70GB VRAM, leaves
   # room on the shared GPU0). Checkpoint every epoch (~1h at 2500 iters). max_epoch
   # is a generous cap — stop anytime after ~3 days; resume via run.resume_ckpt_path.
-  max_epoch: 80
-  batch_size_train: 2
+  max_epoch: 200
+  batch_size_train: 4
   batch_size_eval: 1
   num_workers: 8
   warmup_steps: 2000
-  iters_per_epoch: 2500
+  iters_per_epoch: 1500
 
   seed: 42
   # NOTE: launch via scripts/train_run.sh which overrides output_dir per-run.
