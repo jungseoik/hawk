@@ -57,7 +57,8 @@ run_pip install --index-url https://download.pytorch.org/whl/cu128 \
 echo "[setup_env] installing analysis stack..."
 run_pip install \
   numpy scipy scikit-learn matplotlib pandas \
-  umap-learn seaborn tqdm pyyaml
+  umap-learn seaborn tqdm pyyaml \
+  pyarrow hf_transfer            # pyarrow: parquet extraction; hf_transfer: fast HF downloads
 
 # ---------------------------------------------------------------------------
 # 4. Full tier — HAWK training stack (optional)
@@ -93,7 +94,13 @@ if [ "${TIER}" = "--full" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Sanity check
+# 5. Register the `hawk` package (editable) so imports work from any cwd
+# ---------------------------------------------------------------------------
+echo "[setup_env] registering hawk package (pip install -e .)..."
+run_pip install -e "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# ---------------------------------------------------------------------------
+# 6. Sanity check
 # ---------------------------------------------------------------------------
 echo "[setup_env] verifying torch / CUDA / Blackwell capability..."
 conda run -n "${ENV_NAME}" python - <<'PY'

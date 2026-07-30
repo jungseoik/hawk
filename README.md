@@ -101,6 +101,8 @@ Total Loss = L_appearance + 0.1·L_motion + 0.1·L_background
 ## ▶️ Getting Started
 
 > 🚀 **재현(Reproduce) 전체 경로**: git clone → 환경 → 가중치 → 데이터(다운로드·추출) → 스모크 → 학습 → 평가까지 한 번에 따라할 수 있는 단일 가이드는 **[`docs/reproduce.md`](docs/reproduce.md)** 를 보세요. 아래는 요약입니다.
+>
+> 🤖 **에이전트용**: Claude Code에서는 `.claude/skills/reproduce-cerberus` 스킬이 이 전 과정을 단계별 검증과 함께 자동 안내합니다 (`/reproduce-cerberus`).
 
 ### 🪒 Installation
 
