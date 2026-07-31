@@ -32,6 +32,7 @@ def main():
     ap.add_argument("--run-dir", default=None, help="run dir; used with --latest")
     ap.add_argument("--latest", action="store_true", help="pick newest checkpoint_*.pth under run-dir/main")
     ap.add_argument("--every", type=int, default=0, help="with --latest: only upload if epoch %% N == 0 (milestones)")
+    ap.add_argument("--all-milestones", type=int, default=0, help="with --run-dir: upload ALL local checkpoints with epoch %% N == 0 not yet on HF")
     ap.add_argument("--also", nargs="*", default=[], help="extra files to upload (run_info, config, log)")
     ap.add_argument("--token", default=None)
     args = ap.parse_args()
@@ -39,6 +40,31 @@ def main():
     from huggingface_hub import HfApi
     api = HfApi(token=resolve_token(args.token))
     api.create_repo(args.repo, repo_type="model", private=True, exist_ok=True)
+
+    # --all-milestones N: upload EVERY local checkpoint whose epoch % N == 0 that
+    # isn't already on HF. Robust to monitor timing (never misses a milestone even
+    # if the newest checkpoint has advanced past a multiple of N between checks).
+    if args.all_milestones and args.run_dir:
+        existing = set(api.list_repo_files(args.repo, repo_type="model"))
+        cks = glob.glob(os.path.join(args.run_dir, "main", "checkpoint_*.pth"))
+        mile = sorted((int(''.join(filter(str.isdigit, os.path.basename(p))) or -1), p) for p in cks)
+        did = 0
+        for n, p in mile:
+            if n < 0 or n % args.all_milestones != 0:
+                continue
+            remote = f"{args.folder}/{os.path.basename(p)}"
+            if remote in existing:
+                continue
+            print(f"[upload] {p} -> {args.repo}:{remote} ({os.path.getsize(p)/1e9:.2f} GB)", flush=True)
+            api.upload_file(path_or_fileobj=p, path_in_repo=remote, repo_id=args.repo, repo_type="model")
+            did += 1
+        for name in ("run_info.txt", "config.yaml", "train.log"):
+            fp = os.path.join(args.run_dir, name)
+            if os.path.isfile(fp):
+                api.upload_file(path_or_fileobj=fp, path_in_repo=f"{args.folder}/{name}",
+                                repo_id=args.repo, repo_type="model")
+        print(f"[upload] all-milestones done ({did} new checkpoint(s))", flush=True)
+        return
 
     ckpt = args.ckpt
     if args.latest and args.run_dir:
