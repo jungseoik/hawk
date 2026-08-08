@@ -68,9 +68,26 @@ Also set `RUNS_ROOT=/data/<you>/runs` when calling `train_run.sh` if not using `
 Log shows `Resume checkpoint from .../checkpoint_53.pth` then `Start training epoch 54`.
 LR/optimizer continue from the stop point; TensorBoard curve continues (global step = epoch*iters+i).
 
-## Current training state (as of pause)
-- Paused at **epoch 54** (iter 1220/1500); newest saved = **checkpoint_53** (epoch 53 complete).
-- Loss plateaued (~2.9 total since ~epoch 10); disentanglement cos → ≈0. LR still ~8.4e-6
-  (cosine set for max_epoch 200, so annealing incomplete — more epochs may lower loss slightly).
-- Full detail: `STOPPED.md` (also on HF). Reproduce-from-scratch: `docs/reproduce.md`, plan: `docs/training_plan.md`,
+## Current training state
+- **Migration done (2026-08-09)**: now on a Backend.AI container with everything under
+  `/home/work/seoik` (NFS, the only persistent volume). Configs already point there.
+- Resumed from **`checkpoint_53`** (epoch 53 complete; epoch 54's partial 1264/1500 iters were
+  discarded — resume granularity is per-epoch).
+- **Schedule changed on resume**: `max_epoch` 200 → **107**, GPUs 2 → **3** (effective batch
+  8 → 12). Rationale, numbers and the expected epoch-54 discontinuity are in
+  **[`training-log.md`](training-log.md)** — read it before interpreting the loss curve.
+- Loss plateaued (~2.9 total since ~epoch 10); disentanglement cos → ≈0. LR was 8.53e-6 under
+  the old 200-epoch cosine (only 15% decayed); under `max_epoch 107` it resumes at 5.57e-6 and
+  reaches `min_lr` at the end.
+- Full detail: `STOPPED.md` (also on HF), chunk history in `docs/training-log.md`.
+  Reproduce-from-scratch: `docs/reproduce.md`, plan: `docs/training_plan.md`,
   agent runbook: `.claude/skills/reproduce-cerberus/`.
+
+### Server-specific gotchas (this container)
+- `$HOME` is scratch — conda/caches/data must live under `/home/work/seoik`.
+- The container's own conda (`/home/work/miniconda3`) hijacks `-n cerberus`; `train_run.sh`
+  addresses our env by absolute prefix instead.
+- NFS saturates at ~50 small-file writes/s no matter the parallelism — WebVid extraction
+  (2.66M mp4) takes ~3 h and cannot be sped up with more workers.
+- Extraction here uses `scripts/extract_all_webvid.py` (single volume, resumable), not
+  `build_webvid_split.py` (which was for the old big+small two-disk layout).

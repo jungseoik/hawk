@@ -14,7 +14,7 @@
 #   # ...train a while, Ctrl-C / kill for other work, then LATER just rerun the
 #   #    SAME command -> it auto-resumes from the latest checkpoint.
 #
-# Env: RUNS_ROOT (default /data/pia/runs), ENV_NAME (default cerberus),
+# Env: RUNS_ROOT (default /home/work/seoik/runs), ENV_NAME (default cerberus),
 #      MASTER_PORT (default 10000), FRESH=1 to ignore existing checkpoints.
 # =============================================================================
 set -euo pipefail
@@ -25,7 +25,21 @@ NAME="${2:?provide a STABLE run_name (reused across chunks), e.g. 'core'}"
 GPUS="${3:-0,1}"
 NPROC="${4:-$(echo "$GPUS" | tr ',' '\n' | grep -c .)}"
 ENV_NAME="${ENV_NAME:-cerberus}"
-RUNS_ROOT="${RUNS_ROOT:-/data/pia/runs}"
+RUNS_ROOT="${RUNS_ROOT:-/home/work/seoik/runs}"
+
+# ---- conda + caches must live under /home/work/seoik (the only persistent volume;
+#      $HOME here is container scratch that disappears with the session) ----
+# NOTE: the container ships its own conda at /home/work/miniconda3 (active as `base`),
+# and its envs_dirs does NOT include ours -- so `conda run -n cerberus` resolves to the
+# WRONG path and fails. Always address our env by absolute prefix (-p).
+CONDA_ROOT="${CONDA_ROOT:-/home/work/seoik/miniconda3}"
+ENV_PREFIX="${ENV_PREFIX:-${CONDA_ROOT}/envs/${ENV_NAME}}"
+CONDA_BIN="${CONDA_ROOT}/bin/conda"
+[ -x "$CONDA_BIN" ] || { echo "[train_run] no conda at $CONDA_BIN"; exit 1; }
+[ -d "$ENV_PREFIX" ] || { echo "[train_run] no env at $ENV_PREFIX"; exit 1; }
+export TORCH_HOME="${TORCH_HOME:-/home/work/seoik/cache/torch}"   # eva_vit_g / blip2 qformer
+export HF_HOME="${HF_HOME:-/home/work/seoik/cache/hf}"            # bert-base-uncased, tokenizers
+mkdir -p "$TORCH_HOME" "$HF_HOME"
 
 RUN_DIR="${RUNS_ROOT}/${NAME}"
 JOB_ID="main"                       # fixed => checkpoints/TB land in RUN_DIR/main across chunks
@@ -61,5 +75,5 @@ OPTS=(run.output_dir="$RUN_DIR")
 # --no-capture-output: stream stdout/stderr live (plain `conda run` buffers the pipe,
 # leaving train.log empty until exit).
 HAWK_JOB_ID="$JOB_ID" NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES="$GPUS" PYTHONUNBUFFERED=1 \
-  conda run --no-capture-output -n "$ENV_NAME" torchrun --nproc_per_node="$NPROC" --master_port="${MASTER_PORT:-10000}" \
+  "$CONDA_BIN" run --no-capture-output -p "$ENV_PREFIX" torchrun --nproc_per_node="$NPROC" --master_port="${MASTER_PORT:-10000}" \
   train.py --cfg-path "$CFG" --options "${OPTS[@]}" 2>&1 | tee -a "$RUN_DIR/train.log"

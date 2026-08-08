@@ -4,7 +4,7 @@ model:
   freeze_vit: True
   freeze_qformer: True
   num_query_token: 32
-  llama_model: "/home/pia/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+  llama_model: "/home/work/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
   equip_audio_branch: False
   frozen_llama_proj: False
   frozen_video_Qformer: False
@@ -18,8 +18,8 @@ datasets:
   webvid:
     data_type: video
     build_info:
-      anno_dir: /data/pia/webvid_extracted/annotations/
-      videos_dir: /data/pia/webvid_extracted/videos/
+      anno_dir: /home/work/seoik/webvid_extracted/annotations/
+      videos_dir: /home/work/seoik/webvid_extracted/videos/
     vis_processor:
       train: { name: "alpro_video_train", n_frms: 32, image_size: 224 }
     text_processor:
@@ -34,10 +34,25 @@ run:
   warmup_lr: 1e-6
   weight_decay: 0.05
 
-  # ~3-day main pretrain. batch 2 = throughput/headroom balance (~70GB VRAM, leaves
-  # room on the shared GPU0). Checkpoint every epoch (~1h at 2500 iters). max_epoch
-  # is a generous cap — stop anytime after ~3 days; resume via run.resume_ckpt_path.
-  max_epoch: 200
+  # max_epoch = the LR SCHEDULE LENGTH, not just a stopping point.
+  # optims.py:99 anneals cosine over (max_epoch * iters_per_epoch) total steps, so this
+  # number decides how fast LR decays — it is NOT a harmless upper bound.
+  #
+  # Was 200 ("generous cap, stop anytime after ~3 days", commits e11860c/95eda28). That
+  # stretched cosine over 300k steps, so after 53 epochs LR had only fallen 1e-5 -> 8.5e-6
+  # (15%) and total loss sat on a ~2.9 plateau: annealing had barely started.
+  #
+  # Now 107, chosen to match ORIGINAL HAWK's stage-1 training BUDGET IN SAMPLES (not in
+  # epochs — the units differ: HAWK 1 epoch = 2500 iters x batch 1 x 4 GPU = 10k samples;
+  # ours = 1500 iters x batch 4 x 3 GPU = 18k samples). Matching sample count instead:
+  #   HAWK stage1 plan : 160 ep x 2500 it x 4  = 1.60M samples (ran to ckpt_127 = 1.27M)
+  #   CERBERUS         : 107 ep x 1500 it x 12 = 1.60M samples  <- equivalent budget
+  # LR now reaches min_lr at the end, and epoch 53 sits at 53/107 = 50% of the schedule.
+  #
+  # batch 4 = VRAM ceiling (measured max mem 69063 MiB / 80 GB on H100); batch 5 OOMs.
+  # Checkpoint every epoch (~39 min at 1500 iters). See docs/training-log.md for the
+  # full chunk-by-chunk history and the reasoning behind this change.
+  max_epoch: 107
   batch_size_train: 4
   batch_size_eval: 1
   num_workers: 8
@@ -46,7 +61,7 @@ run:
 
   seed: 42
   # NOTE: launch via scripts/train_run.sh which overrides output_dir per-run.
-  output_dir: "/data/pia/runs/stage1_main_fallback"
+  output_dir: "/home/work/seoik/runs/stage1_main_fallback"
 
   amp: True
   resume_ckpt_path: null

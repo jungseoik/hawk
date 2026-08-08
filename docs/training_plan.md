@@ -22,8 +22,13 @@ bash scripts/train_run.sh configs/train_configs/stage1_main.yaml core 0,1 2
 - Monitor: `tail -f /data/pia/runs/core/train.log` ; `tensorboard --logdir /data/pia/runs/core/main/tensorboard`.
 
 ## Phase 0 — Core model (Stage 1 pretrain)  ← DO THIS FIRST
-- Config: `stage1_main.yaml` (batch 2, 2×GPU). Run **as long as feasible** (the more
-  converged, the more convincingly the tri-branch / CVD advantage shows). Chunk freely.
+- Config: `stage1_main.yaml` (batch 4, **3×GPU**, `max_epoch: 107`). Chunk freely.
+- **`max_epoch` is the LR schedule length, not a stopping point** — it sets the cosine horizon
+  (`optims.py:99`), so "run as long as feasible" only works if the horizon matches the plan.
+  107 was chosen to equal original HAWK's stage-1 **sample budget** (1.60M) at our
+  1500 iters × batch 4 × 3 GPU, so LR actually reaches `min_lr`. Epoch counts are not
+  comparable across the two setups (HAWK 1 ep = 10k samples, ours = 18k).
+  Full reasoning + chunk history: [`training-log.md`](training-log.md).
 - Produces: the **best core checkpoint** + loss & complementarity curves
   (`Loss/middle` = cos(z_a,z_m), `Loss/middle_bg` = cos(z_m,z_b)) — direct E1/E3 evidence.
 - Throughput ~3 clips/s on 2× Blackwell (compute-bound). Reference: ~6 days ≈ HAWK-equiv
