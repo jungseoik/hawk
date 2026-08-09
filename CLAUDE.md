@@ -60,6 +60,8 @@
 - **논문 명칭**: 신규 논문의 공식 명칭은 **CERBERUS**입니다. 개발 과정/일부 메모에서는 **HAWK++**로도 불리므로 동일 대상임을 기억하세요.
 - **논문 집필 포맷**: `paper_translation/improved/*.md`는 한글 학술체 + 영어 용어 병기, 이중언어 제목(H1/H2/H3), blockquote 수식 등 정해진 규칙을 따릅니다. 상세는 `.claude/agent-memory/academic-paper-writer/feedback_paper_format.md` 참고.
 - **번역/집필 전용 에이전트**: 학술 번역은 `academic-paper-translator-ko`, 집필/구조화는 `academic-paper-writer` 에이전트를 사용하세요 (`.claude/agents/`).
+- **자체 에이전트 vs 외부 스킬**: `.claude/agents/`의 4개(`academic-paper-writer`, `toptier-paper-reviewer`, `experiment-design-strategist`, `academic-paper-translator-ko`)는 **CERBERUS 고유 맥락을 메모리로 축적**하고 있습니다(`.claude/agent-memory/` — 2026-06-10 검토의 약점 6종, 코드-논문 ground truth, 포맷 규칙). **CERBERUS 관련 작업은 이쪽을 먼저 쓰세요.**
+  `.claude/skills/`의 `academic-paper*`·`deep-research`·`academic-pipeline`은 외부 패키지(`vendor/academic-research-skills`, CC BY-NC 4.0)로, **인용 검증(Semantic Scholar/OpenAlex/Crossref/arXiv 대조 + claim-faithfulness)·PRISMA 문헌고찰·학회 포맷** 같은 범용 기능에 쓰세요. 배경·상충 정리는 [`vendor/README.md`](vendor/README.md), 저작권 표기는 [`NOTICE.md`](NOTICE.md).
 - **코드 수정 시**: Background 관련 변경은 Motion 브랜치와의 **상보성(`Motion + Background = 원본`)** 을 깨지 않는지 확인하세요.
 
 ---

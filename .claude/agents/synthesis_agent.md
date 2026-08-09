@@ -1,0 +1,1 @@
+../../vendor/academic-research-skills/agents/synthesis_agent.md
