@@ -23,24 +23,42 @@ ENV_NAME="${ENV_NAME:-cerberus}"
 PY_VERSION="3.10"
 TIER="${1:---analysis}"
 
-echo "[setup_env] conda: $(which conda)"
-echo "[setup_env] target env: ${ENV_NAME}  (python ${PY_VERSION})  tier: ${TIER}"
+# ---------------------------------------------------------------------------
+# 0. Pin the conda installation AND address the env by absolute prefix.
+#
+# ML container images often ship their own conda (e.g. /home/work/miniconda3,
+# already active as `base`). It exports CONDA_EXE/envs_dirs pointing at ITSELF, so
+# `conda run -n cerberus` silently resolves to <their-root>/envs/cerberus, which does
+# not exist -> "EnvironmentLocationNotFound" or a bare `No module named 'torch'`.
+# Using -p <prefix> everywhere makes this independent of whose conda is on PATH.
+#
+# CONDA_ROOT defaults to the conda that owns the `conda` on PATH; override to choose.
+# Put it on a PERSISTENT volume — on a container host $HOME is usually scratch.
+# ---------------------------------------------------------------------------
+CONDA_BIN="$(command -v conda || true)"
+[ -n "$CONDA_BIN" ] || { echo "[setup_env] conda not found on PATH"; exit 1; }
+CONDA_ROOT="${CONDA_ROOT:-$(dirname "$(dirname "$CONDA_BIN")")}"
+CONDA_BIN="${CONDA_ROOT}/bin/conda"
+ENV_PREFIX="${ENV_PREFIX:-${CONDA_ROOT}/envs/${ENV_NAME}}"
+
+echo "[setup_env] conda root : ${CONDA_ROOT}"
+echo "[setup_env] env prefix : ${ENV_PREFIX}  (python ${PY_VERSION})  tier: ${TIER}"
 
 # ---------------------------------------------------------------------------
 # 1. Create env if missing
 # ---------------------------------------------------------------------------
-if conda env list | awk '{print $1}' | grep -qx "${ENV_NAME}"; then
-  echo "[setup_env] env '${ENV_NAME}' already exists — reusing."
+if [ -x "${ENV_PREFIX}/bin/python" ]; then
+  echo "[setup_env] env already exists at ${ENV_PREFIX} — reusing."
 else
-  echo "[setup_env] creating env '${ENV_NAME}'..."
-  conda create -y -n "${ENV_NAME}" "python=${PY_VERSION}"
+  echo "[setup_env] creating env at ${ENV_PREFIX}..."
+  "$CONDA_BIN" create -y -p "${ENV_PREFIX}" "python=${PY_VERSION}"
 fi
 
 # Resolve env python/pip without needing `conda activate` in non-interactive shell
-ENV_PY="$(conda run -n "${ENV_NAME}" which python)"
+ENV_PY="${ENV_PREFIX}/bin/python"
 echo "[setup_env] env python: ${ENV_PY}"
 
-run_pip() { conda run -n "${ENV_NAME}" python -m pip "$@"; }
+run_pip() { "$ENV_PY" -m pip "$@"; }
 
 run_pip install --upgrade pip
 
@@ -74,7 +92,7 @@ if [ "${TIER}" = "--full" ]; then
   # (libavformat-dev ...) to compile, which require sudo. conda-forge ships av with
   # bundled ffmpeg libraries, so no system packages / root are needed.
   echo "[setup_env] installing av + ffmpeg via conda-forge (bundled libs, no sudo)..."
-  conda install -y -n "${ENV_NAME}" -c conda-forge av ffmpeg
+  "$CONDA_BIN" install -y -p "${ENV_PREFIX}" -c conda-forge av ffmpeg
 
   # opencv>=4.10 is required for NumPy 2.x compatibility (4.8.1.78 fails with
   # "_ARRAY_API not found" against the numpy 2.x pulled by the analysis tier).
@@ -89,7 +107,7 @@ if [ "${TIER}" = "--full" ]; then
   # NOTE: pytorchvideo 0.1.5 imports the removed torchvision.transforms.functional_tensor;
   # hawk/__init__.py installs a compatibility alias so imports succeed on new torchvision.
   echo "[setup_env] downloading spaCy en_core_web_sm..."
-  conda run -n "${ENV_NAME}" python -m spacy download en_core_web_sm || \
+  "$ENV_PY" -m spacy download en_core_web_sm || \
     echo "[setup_env] WARN: spaCy model download failed (retry online later)."
 fi
 
@@ -103,7 +121,7 @@ run_pip install -e "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # 6. Sanity check
 # ---------------------------------------------------------------------------
 echo "[setup_env] verifying torch / CUDA / Blackwell capability..."
-conda run -n "${ENV_NAME}" python - <<'PY'
+"$ENV_PY" - <<'PY'
 import torch
 print("torch:", torch.__version__)
 print("cuda available:", torch.cuda.is_available())
@@ -117,4 +135,4 @@ if torch.cuda.is_available():
     print("sm_120 supported:", any("sm_120" in a or "12.0" in a for a in archs))
 PY
 
-echo "[setup_env] DONE. Activate with:  conda activate ${ENV_NAME}"
+echo "[setup_env] DONE. Use it via:  ${ENV_PREFIX}/bin/python   (or: conda activate ${ENV_PREFIX})"

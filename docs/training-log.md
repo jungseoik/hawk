@@ -122,6 +122,11 @@ re-discovered:
 - `scripts/extract_all_webvid.py` (new) replaces `build_webvid_split.py` here: one 9.1T volume
   means no big/small split or union symlinks are needed. It is resumable per shard via
   `<out>/.done/<page_dir>` markers.
+- **TensorBoard is NOT a complete record of this run.** chunk 1-2's event files stayed on the
+  old server, so `runs/core/main/tensorboard/` starts at step 81,005. `train.log` is the only
+  source covering epoch 0 onward (it is appended across chunks and travelled via HF). Use
+  `scripts/plot_training_curves.py` to rebuild the full curves + a CSV from the log; it handles
+  the re-run epochs at the resume points (25, 54) by letting the later record win.
 - Model build verified before training with
   `python scripts/smoke_test.py --cfg configs/train_configs/stage1_main.yaml` → all three
   streams (appearance / motion / background) forward OK on H100 (sm_90), torch 2.11+cu128,
