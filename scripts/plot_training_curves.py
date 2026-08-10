@@ -15,7 +15,7 @@ Usage:
     python scripts/plot_training_curves.py                       # defaults below
     python scripts/plot_training_curves.py --log <path> --out figs/stage1_curves
 """
-import argparse, os, re
+import argparse, math, os, re
 from collections import OrderedDict
 
 import matplotlib
@@ -30,16 +30,36 @@ INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#d9d8d4"
 
 RE_EPOCH_START = re.compile(r"Start training epoch (\d+)")
 RE_RESUME = re.compile(r"Resume checkpoint from .*checkpoint_(\d+)\.pth")
+# `nan` 도 매칭한다. AMP 학습에서는 2500 iteration 중 한둘이 fp16 오버플로로 NaN 손실을
+# 내는 일이 있고(GradScaler 가 해당 스텝을 건너뛰므로 학습 자체는 진행된다), 그 한 번이
+# epoch 전체 평균을 NaN 으로 만든다. 숫자만 매칭하면 해당 epoch 이 곡선에서 **조용히
+# 사라져** 구멍이 있다는 사실조차 드러나지 않는다. 매칭한 뒤 아래에서 반복 로그로부터
+# 강건하게 재계산하고, 몇 개를 제외했는지 보고한다.
+_NUM = r"(-?[\d.]+|nan)"
 RE_AVG = re.compile(
-    r"Averaged stats:.*?totalloss: ([\d.]+).*?oriloss: ([\d.]+).*?middleloss: ([\d.]+)"
-    r".*?motionloss: ([\d.]+).*?backgroundloss: ([\d.]+).*?middleloss_bg: ([\d.]+)")
+    rf"Averaged stats:.*?totalloss: {_NUM}.*?oriloss: {_NUM}.*?middleloss: {_NUM}"
+    rf".*?motionloss: {_NUM}.*?backgroundloss: {_NUM}.*?middleloss_bg: {_NUM}")
 RE_ITER = re.compile(
-    r"Train: data epoch: \[(\d+)\]\s+\[\s*(\d+)/(\d+)\].*?lr: ([\d.]+).*?totalloss: ([\d.]+)")
+    rf"Train: data epoch: \[(\d+)\]\s+\[\s*(\d+)/(\d+)\].*?lr: ([\d.]+).*?totalloss: {_NUM}"
+    rf".*?oriloss: {_NUM}.*?middleloss: {_NUM}.*?motionloss: {_NUM}"
+    rf".*?backgroundloss: {_NUM}.*?middleloss_bg: {_NUM}")
+
+# Averaged stats 와 반복 로그의 항목 순서가 다르다 (Averaged: total,ori,middle,motion,bg,middle_bg
+# / 반복 로그도 동일 순서). 재계산 시 이 키 순서를 공유한다.
+LOSS_KEYS = ("total", "ori", "middle", "motion", "background", "middle_bg")
 
 
 def parse(path):
-    """-> (epoch_stats, iter_points, chunk_starts). Later chunks overwrite re-run epochs."""
+    """-> (epoch_stats, iter_points, chunk_starts). Later chunks overwrite re-run epochs.
+
+    NaN 처리: 로그의 `Averaged stats` 가 NaN 이면 그 epoch 의 값을 **반복 로그로부터
+    재계산**한다(유한한 iteration 만 평균). 재계산에 쓸 수 있는 iteration 이 없으면 그
+    epoch 은 NaN 으로 남기되, 어느 epoch 이 그랬는지 호출자에게 알린다 — 곡선에서 조용히
+    빠지는 것보다 명시적으로 결측인 편이 낫다.
+    """
     epochs, iters, chunks = OrderedDict(), [], []
+    per_epoch_iters = {}
+    nan_epochs = []
     cur = None
     with open(path, errors="ignore") as f:
         for line in f:
@@ -53,15 +73,33 @@ def parse(path):
                 continue
             m = RE_ITER.search(line)
             if m:
-                ep, it, ipe, lr, tot = int(m.group(1)), int(m.group(2)), int(m.group(3)), \
-                    float(m.group(4)), float(m.group(5))
-                iters.append((ep + it / ipe, lr, tot))
+                ep, it, ipe = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                lr = float(m.group(4))
+                losses = [float(m.group(i)) for i in range(5, 11)]
+                iters.append((ep + it / ipe, lr, losses[0]))
+                per_epoch_iters.setdefault(ep, []).append(losses)
                 continue
             m = RE_AVG.search(line)
             if m and cur is not None:
-                epochs[cur] = dict(zip(
-                    ("total", "ori", "middle", "motion", "background", "middle_bg"),
-                    (float(x) for x in m.groups())))
+                vals = [float(x) for x in m.groups()]
+                if not any(math.isfinite(v) for v in vals) or not math.isfinite(vals[0]):
+                    rows = per_epoch_iters.get(cur, [])
+                    n_used = 0
+                    for j in range(len(vals)):
+                        finite = [r[j] for r in rows if math.isfinite(r[j])]
+                        if not math.isfinite(vals[j]):
+                            vals[j] = sum(finite) / len(finite) if finite else float("nan")
+                        n_used = max(n_used, len(finite))
+                    nan_epochs.append((cur, n_used))
+                epochs[cur] = dict(zip(LOSS_KEYS, vals))
+
+    if nan_epochs:
+        print(f"[curves] Averaged stats 가 NaN 인 epoch {len(nan_epochs)}개 — "
+              "반복 로그의 유한값으로 재계산했습니다 "
+              "(AMP 오버플로로 일부 iteration 이 NaN; GradScaler 가 해당 스텝을 건너뜁니다).")
+        for ep, n in nan_epochs[:5]:
+            print(f"          epoch {ep}: 유한 iteration {n}개로 평균")
+
     # a re-run epoch appears twice; keep the last write, then sort by epoch
     return OrderedDict(sorted(epochs.items())), iters, sorted(set(chunks))
 
