@@ -54,20 +54,101 @@ def compute_bleu(references, hypotheses):
     return {f"BLEU-{i + 1}": float(s) for i, s in enumerate(scores)}
 
 
-def judge_gpt_guided(records, judge_spec):
-    """GPT-guided 3종. 외부 판정자가 필요하므로 명시적으로 켤 때만 동작한다.
+JUDGE_PROMPT = """You are grading a model-generated description of a video against a \
+reference description written by a human annotator.
 
-    판정자를 붙일 때 반드시 함께 보고해야 하는 것 (심사 지적 사항):
-      - 판정 모델의 정확한 버전과 프롬프트 전문
-      - 제시 순서 무작위화 여부 (자기선호 편향 통제)
-      - 최소 100 샘플에 대한 인간-판정자 일치도
+Reference (ground truth):
+{reference}
+
+Model output:
+{hypothesis}
+
+Score the model output on three dimensions, each from 0.0 to 1.0:
+
+- reasonability: is the described event logically coherent and plausible given the \
+reference? Penalise contradictions and hallucinated causes.
+- detail: does it capture the specific content of the reference (objects, place, \
+conditions, what happened) rather than generic filler?
+- consistency: is the output internally consistent and consistent with the reference, \
+without self-contradiction or drift?
+
+Respond with JSON only, no prose:
+{{"reasonability": <float>, "detail": <float>, "consistency": <float>}}"""
+
+
+def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, verbose=True):
+    """GPT-guided 3종을 외부 LLM 판정자로 매긴다.
+
+    ⚠️ 비교 가능성에 대한 경고 — 논문에 쓸 때 반드시 지킬 것.
+    원본 HAWK 의 Reasonability/Detail/Consistency 는 **GPT 가 매긴 점수**다. 판정자가
+    다르면 절대값이 달라지므로, 여기서 나온 점수를 그 표와 나란히 놓아서는 안 된다.
+    이 지표는 **같은 판정자로 매긴 arm 끼리의 비교**에만 쓰고, 논문 대 논문 비교는
+    판정자가 없는 BLEU 가 담당한다.
+
+    심사 통과를 위해 함께 보고해야 하는 것:
+      - 판정 모델의 정확한 버전(결과 파일에 기록됨)과 프롬프트 전문(부록)
+      - 제시 순서 무작위화 여부 — 본 구현은 참조/가설을 고정 순서로 제시하므로,
+        arm 간 비교에서는 편향이 대칭이나 절대값 해석에는 주의
+      - 최소 100 샘플에 대한 인간-판정자 일치도 (별도 측정 필요)
     """
-    raise NotImplementedError(
-        "GPT-guided 판정자가 아직 연결되지 않았습니다.\n"
-        f"  요청된 판정자: {judge_spec}\n"
-        "  판정자를 붙이기 전까지 이 지표를 논문에 보고하지 마십시오. "
-        "BLEU 만으로 arm 간 비교는 가능합니다."
-    )
+    import json as _json
+    import os as _os
+    import re as _re
+
+    from google import genai
+    from google.genai import types
+
+    key = _os.environ.get("GEMINI_API_KEY")
+    if not key:
+        token_path = f"{ROOT}/.gemini_token"
+        if _os.path.exists(token_path):
+            key = open(token_path).read().strip()
+    if not key:
+        raise RuntimeError(
+            "판정자 API 키가 없습니다. GEMINI_API_KEY 를 설정하거나 "
+            f"{ROOT}/.gemini_token 을 두십시오."
+        )
+
+    client = genai.Client(api_key=key)
+    subset = records[:limit] if limit else records
+    dims = ("reasonability", "detail", "consistency")
+    totals = {d: [] for d in dims}
+    failures = 0
+
+    for i, rec in enumerate(subset, 1):
+        gt, pred = rec.get(field_gt) or "", rec.get(field_pred) or ""
+        if not gt or not pred:
+            continue
+        try:
+            resp = client.models.generate_content(
+                model=judge_model,
+                contents=JUDGE_PROMPT.format(reference=gt, hypothesis=pred),
+                # temperature 0 — 판정자는 결정론이어야 재현 가능하다.
+                config=types.GenerateContentConfig(temperature=0.0),
+            )
+            text = resp.text.strip()
+            match = _re.search(r"\{.*\}", text, _re.S)
+            scores = _json.loads(match.group(0) if match else text)
+            for d in dims:
+                totals[d].append(float(scores[d]))
+            rec["judge_scores"] = {d: float(scores[d]) for d in dims}
+        except Exception as exc:
+            failures += 1
+            if failures <= 3:
+                print(f"  [판정 실패] {rec.get('video')}: {exc}")
+
+        if verbose and i % 50 == 0:
+            print(f"  판정 {i}/{len(subset)} (실패 {failures})")
+
+    if not totals["reasonability"]:
+        raise RuntimeError(f"판정에 모두 실패했습니다 (시도 {len(subset)}건).")
+
+    out = {d: sum(v) / len(v) for d, v in totals.items()}
+    out["_judge_model"] = judge_model
+    out["_n_judged"] = len(totals["reasonability"])
+    out["_n_failed"] = failures
+    out["_comparable_to_published"] = False   # 판정자가 다르므로 항상 False
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +265,14 @@ def run_eval(args):
         )
 
     if args.judge:
-        metrics["gpt_guided"] = judge_gpt_guided(records, args.judge)
+        print(f"[eval] 판정자 실행: {args.judge}")
+        metrics["judge_description"] = judge_gpt_guided(
+            records, args.judge, "gt_description", "pred_description", args.judge_limit
+        )
+        if qa_records:
+            metrics["judge_qa"] = judge_gpt_guided(
+                qa_records, args.judge, "gt_answer", "pred_answer", args.judge_limit
+            )
 
     out = {
         # 재현에 필요한 조건은 전부 결과 파일에 박아 둔다. 이 값이 다른 두 파일을
@@ -255,7 +343,10 @@ def main():
                     default="Describe the video and identify whether anything anomalous "
                             "happens, including where it happens and why it is dangerous.")
     ap.add_argument("--judge", default=None,
-                    help="GPT-guided 판정자 지정 (미지정 시 BLEU 만 계산)")
+                    help="판정자 모델 id (예: gemini-2.5-flash). 미지정 시 BLEU 만 계산. "
+                         "판정 점수는 같은 판정자로 매긴 arm 끼리만 비교 가능하다")
+    ap.add_argument("--judge-limit", type=int, default=0,
+                    help="판정할 샘플 수 상한 (0이면 전체)")
     ap.add_argument("--compare", nargs="*", default=None,
                     help="결과 JSON 들을 비교 출력하고 종료")
     args = ap.parse_args()

@@ -51,6 +51,7 @@ export CERBERUS_PY=$CERBERUS_ROOT/miniconda3/envs/cerberus/bin/python
 export TORCH_HOME=$CERBERUS_ROOT/cache/torch      # eva_vit_g / blip2 qformer
 export HF_HOME=$CERBERUS_ROOT/cache/hf            # bert-base-uncased, tokenizers
 [ -f $CERBERUS_ROOT/.hf_token ] && export HF_TOKEN=$(cat $CERBERUS_ROOT/.hf_token)
+[ -f $CERBERUS_ROOT/.gemini_token ] && export GEMINI_API_KEY=$(cat $CERBERUS_ROOT/.gemini_token)  # GPT-guided 판정자
 alias cpy='$CERBERUS_PY'
 alias cdh='cd $CERBERUS_ROOT/hawk'
 # 주의: 컨테이너 자체 conda가 `-n cerberus`를 가로챈다. 반드시 -p 절대경로로:
@@ -79,6 +80,7 @@ chk_dir "이상행동 데이터" "$ROOT/hawk_anomaly/Videos"
 chk_dir "학습 run"       "$ROOT/runs/core/main"
 [ -f "$ROOT/.hf_token" ] && ok "HF 토큰" || bad "HF 토큰 없음"
 [ -f "$ROOT/.github_token" ] && ok "GitHub 토큰" || bad "GitHub 토큰 없음"
+[ -f "$ROOT/.gemini_token" ] && ok "Gemini 토큰 (판정자)" || echo "  --   Gemini 토큰 없음 (GPT-guided 평가 불가, 나머지는 정상)"
 
 LAST=$(ls "$ROOT"/runs/core/main/checkpoint_*.pth 2>/dev/null | sort -V | tail -1)
 [ -n "$LAST" ] && ok "최신 체크포인트: $(basename "$LAST") (총 $(ls "$ROOT"/runs/core/main/checkpoint_*.pth 2>/dev/null | wc -l)개)" \
