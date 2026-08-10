@@ -136,21 +136,52 @@ def cosine_stats(X: np.ndarray, Y: np.ndarray) -> dict:
 # CDS — the headline metric
 # ---------------------------------------------------------------------------
 def complementary_disentanglement_score(
-    z_a: np.ndarray, z_m: np.ndarray, z_b: np.ndarray, kernel: str = "linear"
+    z_a: np.ndarray, z_m: np.ndarray, z_b: np.ndarray, kernel: str = "linear",
+    reference: np.ndarray | None = None, block_normalize: bool = True,
 ) -> dict:
     """
     Complementary Disentanglement Score.
 
-    Coverage   = CKA([z_m ; z_b], z_a)   in [0,1]   (union covers full-frame info)
+    Coverage   = CKA([z_m ; z_b], ref)   in [0,1]   (union covers full-frame info)
     Redundancy = CKA(z_m, z_b)           in [0,1]   (overlap of the two streams)
     CDS        = Coverage * (1 - Redundancy)        in [0,1], higher is better.
+
+    두 가지 주의점이 있고, 둘 다 이 지표로 **설정 간 비교**를 할 때 결과를 뒤집을 수 있다.
+
+    1. **기준축이 함께 움직인다.** 기본 기준인 `z_a` 는 `L_sim = 1 − cos(z_a, z_m)` 에
+       의해 `z_m` 쪽으로 학습되는 표현이다. 따라서 `L_sim`/`L_dis` 유무가 다른 구성들
+       사이에서 Coverage 를 비교하면 자[尺] 자체가 조건마다 달라진다. 학습에서 자유로운
+       기준(동결 인코더 특징, 원본 프레임 통계 등)을 `reference` 로 넘겨 고정할 것을
+       권한다. `z_a` 기준 값은 보조로만 병기한다.
+
+    2. **연결 시 블록 스케일이 지배한다.** `[z_m ; z_b]` 를 정규화 없이 이어 붙이면 Gram
+       행렬이 `K_m + K_b` 가 되어 노름이 큰 블록이 Coverage 를 좌우한다. 정적 스트림이
+       프레임의 90% 이상을 담는 도메인에서는 Coverage 가 사실상 `CKA(z_b, ref)` 가 되어
+       "합집합의 정보 보존" 이 아니라 "정적 스트림 하나의 유사도" 를 재게 된다.
+       `block_normalize=True` 가 각 블록을 Frobenius 노름으로 정규화해 이를 막는다.
+
+    또한 CKA 는 **부호에 불변**이다(Gram 행렬 기반). `z_b = −c·z_m` 인 붕괴 상태에서
+    Redundancy = 1 이 되어 CDS = 0 이 되므로, `cos(z_m,z_b) → −1` 을 지향하는 목적함수와
+    이 지표는 서로 반대 방향을 가리킨다. 자세한 내용은 `collapse_diagnostics` 참조.
     """
     cka = linear_cka if kernel == "linear" else rbf_cka
-    union = np.concatenate([z_m, z_b], 1)
-    coverage = cka(union, z_a)
+
+    def _norm(z):
+        return z / (np.linalg.norm(z) + 1e-12) if block_normalize else z
+
+    union = np.concatenate([_norm(z_m), _norm(z_b)], 1)
+    ref = z_a if reference is None else reference
+    coverage = cka(union, ref)
     redundancy = cka(z_m, z_b)
     cds = coverage * (1.0 - redundancy)
-    return {"coverage": coverage, "redundancy": redundancy, "cds": cds}
+    return {
+        "coverage": coverage,
+        "redundancy": redundancy,
+        "cds": cds,
+        "reference": "z_a (학습됨 — 설정 간 비교 시 주의)" if reference is None
+                     else "external (고정)",
+        "block_normalized": block_normalize,
+    }
 
 
 def collapse_diagnostics(z_a: np.ndarray, z_m: np.ndarray, z_b: np.ndarray) -> dict:
