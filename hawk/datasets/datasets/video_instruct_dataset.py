@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
 import copy
 from hawk.processors import transforms_video,AlproVideoTrainProcessor
 from torchvision import transforms
-from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background,load_video_motion_and_background,apply_shared_transform
+from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background,load_video_motion_and_background,load_streams_aligned,apply_shared_transform
 from hawk.conversation.conversation_video import Conversation,SeparatorStyle
 import numpy as np
 
