@@ -119,8 +119,13 @@ class WebvidDataset(BaseDataset):
             
             # if os.path.exists(video_path):
             try:
-                random_seed = random.randint(0, 2**32 - 1)
-                setup_seed(random_seed)
+                # 수정 전에는 여기서 샘플마다 `setup_seed(random.randint(...))` 로 전역
+                # RNG(torch/numpy/random)를 새로 시드했다. 그 결과 config 의 `seed: 42`
+                # 가 실효를 잃고, 같은 설정·같은 시드로 두 번 돌려도 데이터 순서·프레임
+                # 샘플링·crop 이 모두 달라져 어블레이션 행 간 차이를 "손실의 효과"와
+                # "재학습 난수" 로 구분할 수 없었다. 증강 다양성은 프로세서 내부에서
+                # 이미 확보되므로(load_streams_aligned 가 샘플마다 새 시드를 뽑는다)
+                # 여기서 전역을 다시 시드할 이유가 없다.
                 video, video_motion, video_background = self.vis_processor(video_path)
             except:
                 print(f"for A Failed to load examples with video: {video_path}. "

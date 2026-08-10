@@ -150,20 +150,16 @@ class Video_Instruct_Dataset(BaseDataset):
                     conversation_list[0]["q"] = random.choice(Question)
                     conversation_list[0]["a"] = conversation_answer
                 
-                video, msg = load_video(
-                    video_path=video_path,
+                # 세 스트림을 정합 헬퍼로 함께 로드한다. 로더를 따로 부르면 정합이
+                # "sampling='uniform'" 리터럴 두 개가 우연히 일치하는 데 의존하게 되어,
+                # 한쪽만 바꾸는 순간 상보성 항등식이 조용히 깨진다.
+                video, video_motion, video_background, msg = load_streams_aligned(
+                    video_path,
                     n_frms=self.num_frm,
-                    height=self.resize_size,
-                    width=self.resize_size,
-                    sampling ="uniform", return_msg = True
-                )
-                video_motion, video_background, msg_motion = load_video_motion_and_background(
-                    video_path=video_path,
-                    n_frms=self.num_frm,
-                    height=self.resize_size,
-                    width=self.resize_size,
-                    sampling ="uniform", return_msg = True,
+                    image_size=self.resize_size,
+                    sampling="uniform",
                     ablation=self.static_ablation,
+                    return_msg=True,
                 )
 
                 # 세 스트림에 동일한 crop을 적용한다. 수정 전에는 setup_seed를 한 번만

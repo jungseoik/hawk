@@ -286,7 +286,8 @@ def load_video(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="unifor
 # ---------------------------------------------------------------------------
 
 
-def load_streams_aligned(vpath, n_frms, image_size, sampling="uniform", ablation="flow"):
+def load_streams_aligned(vpath, n_frms, image_size, sampling="uniform", ablation="flow",
+                         return_msg=False):
     """세 스트림을 동일한 프레임 인덱스에서 만든다.
 
     sampling="uniform"이면 선택이 결정론적이라 시드가 없어도 일치하지만, headtail과
@@ -295,10 +296,11 @@ def load_streams_aligned(vpath, n_frms, image_size, sampling="uniform", ablation
     seed = rnd.randint(0, 2**32 - 1)
 
     rnd.seed(seed)
-    clip = load_video(
+    loaded = load_video(
         video_path=vpath, n_frms=n_frms, height=image_size, width=image_size,
-        sampling=sampling,
+        sampling=sampling, return_msg=return_msg,
     )
+    clip, msg = loaded if return_msg else (loaded, None)
 
     rnd.seed(seed)
     clip_motion, clip_background = load_video_motion_and_background(
@@ -306,6 +308,8 @@ def load_streams_aligned(vpath, n_frms, image_size, sampling="uniform", ablation
         sampling=sampling, ablation=ablation,
     )
 
+    if return_msg:
+        return clip, clip_motion, clip_background, msg
     return clip, clip_motion, clip_background
 
 
@@ -314,13 +318,26 @@ def apply_shared_transform(transform, clips):
 
     RandomResizedCrop.get_params 는 torch RNG를 쓰므로, 호출 직전 같은 시드를 걸면
     같은 (i, j, h, w)가 나온다.
+
+    전역 RNG 상태는 반드시 복원한다. `torch.manual_seed` 는 CPU 뿐 아니라 모든 CUDA
+    디바이스의 RNG를 함께 시드하므로, 복원하지 않으면 DataLoader 워커 밖에서 이 함수를
+    부르는 경로(app.py 데모, 평가 스크립트)에서 **생성 RNG가 매 비디오 로드마다
+    크롭 시드로 리셋된다.** 그렇게 되면 생성 결과가 입력 파이프라인의 함수가 되어,
+    같은 입력을 반복 생성해 얻는 BSI 의 자기 일치도 기준선 자체가 오염된다.
     """
     seed = int(torch.randint(0, 2**31 - 1, (1,)).item())
 
-    out = []
-    for clip in clips:
-        torch.manual_seed(seed)
-        out.append(transform(clip))
+    cpu_state = torch.get_rng_state()
+    cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    try:
+        out = []
+        for clip in clips:
+            torch.manual_seed(seed)
+            out.append(transform(clip))
+    finally:
+        torch.set_rng_state(cpu_state)
+        if cuda_states is not None:
+            torch.cuda.set_rng_state_all(cuda_states)
     return out
 
 
