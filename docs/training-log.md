@@ -22,7 +22,9 @@ and [`MIGRATION.md`](MIGRATION.md) (how to move servers).
 
 ### State at the end of chunk 2 (the resume point)
 - Total loss: 8.0 at start → **~2.9 plateau from ~epoch 10 onward** (ep30 2.94, ep50 2.92, ep54 2.90 smoothed)
-- Complementarity terms `cos(z_a,z_m)` and `cos(z_m,z_b)` → **≈ 0** (converged, as designed)
+- Complementarity LOSS terms `middleloss` (= 1 − cos(z_a,z_m)) and `middleloss_bg` (= (1 + cos(z_m,z_b))/2)
+  → **≈ 0** (converged, as designed). NOTE: these are losses, not cosines — inverting them gives
+  **cos(z_a,z_m) → +1** (alignment) and **cos(z_m,z_b) → −1** (anti-correlation). See `base_task.py:264-270`.
 - LR: 1e-5 → **8.53e-6** — i.e. only 15% decayed after 53 epochs
 - Checkpoints: local `0..53`; HF backup `backseollgi/Cerberus/stage1_core/` `0..45` (+50)
 - Samples consumed: 79,500 step × 8 = **636,000**
@@ -131,3 +133,93 @@ re-discovered:
   `python scripts/smoke_test.py --cfg configs/train_configs/stage1_main.yaml` → all three
   streams (appearance / motion / background) forward OK on H100 (sm_90), torch 2.11+cu128,
   transformers 4.28.
+
+---
+
+# Stage-2 finetune (anomaly instruction tuning) — 이 서버, 2026-08-10 착수
+
+## 설정과 그 근거
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| `ckpt` | `runs/core/main/checkpoint_106.pth` | stage1 최종 (LR이 `min_lr`까지 annealing 완료) |
+| `max_epoch` | **160** (원본 그대로) | 아래 예산 계산 참조 |
+| `batch_size_train` | **2** (원본 1) | GPU가 4장→2장이라 effective batch를 맞추기 위해 |
+| `iters_per_epoch` | 2500 (원본 그대로) | |
+| `num_workers` | 8 (원본 16) | 실측 `data:` 지연 0.0000 — 8로 충분, NFS 부하 절감 |
+| GPU | H100 2장 (stage1은 3장) | 세션 재할당으로 변경됨 |
+
+**샘플 예산 — 원본과 동일하게 통제:**
+
+```
+원본 HAWK stage2 : 160 ep x 2500 it x batch 1 x 4 GPU = 1.60M 샘플 (effective batch 4)
+이 서버           : 160 ep x 2500 it x batch 2 x 2 GPU = 1.60M 샘플 (effective batch 4)
+```
+
+GPU 장수가 절반이 된 만큼 batch를 2배로 올려, **샘플 예산과 effective batch를 둘 다** 원본과
+일치시켰다. 그 결과 `max_epoch`은 원본 값 160을 그대로 쓸 수 있다 (stage1에서 107로 재계산해야
+했던 것과 다른 점 — stage1은 `iters_per_epoch`도 1500으로 바꿨기 때문).
+
+**batch를 더 키우지 않은 이유 (2026-08-10 실측, 150 iter 공정 비교, H100 2장):**
+
+| batch | 정상상태 s/it | max mem | 처리량 | 1.6M 샘플 소요 |
+|---|---|---|---|---|
+| 2 | 1.369 | 45.7 GB | **2.92 samples/s** | 6.3일 |
+| 4 | 2.773 | 56.6 GB | 2.89 samples/s | 6.4일 |
+| 6 | 4.31 | 69.0 GB | 2.78 samples/s | 6.7일 |
+| 8 | — | OOM (75.9 GB 할당 후 실패) | — | — |
+
+batch에 비례해 iter 시간이 같이 늘어 **처리량이 평평하다** = 32프레임 x 3스트림 조합이 이미
+샘플당 연산 포화. VRAM을 더 채워도 이득이 없고 batch 6부터는 오히려 저하되므로, 여유 34GB를
+남겨 다일 학습의 OOM 위험을 줄이는 batch 2를 택했다. `data:` 지연은 모든 설정에서 0.0000이라
+NFS는 병목이 아니다. `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`도 batch 6의 저하를
+해소하지 못했다(4.72 s/it) — 단편화가 아니라 연산 한계라는 근거.
+
+## 착수 전 처리한 이관 문제 (다른 서버에서 재현할 때도 필요)
+
+1. **annotation의 비디오 경로가 원저자 서버 절대경로였다.** 배포본 JSON의 `video` 필드가
+   `/remote-home/share/jiaqitang/Data/...`인데, 로더는 `os.path.join(vis_root, sample['video'])`
+   (`video_instruct_dataset.py:128`)를 쓴다. **두 번째 인자가 절대경로면 `vis_root`가 통째로
+   무시되므로** config의 `videos_dir`를 고쳐도 소용이 없다. 게다가 데이터셋 이름이 실제 배포본
+   디렉토리명과 다르다(`UCF-Crime`↔`UCF_Crime`, `avenue/avenue/`↔`CUHK_Avenue/`,
+   `ped1/ped1/`↔`Ped1/`, `ShanghaiTechDataset`↔`ShanghaiTech`).
+   → `scripts/localize_anomaly_annotations.py`가 `videos_dir` 기준 상대경로로 변환해
+   `*.local.json`을 만든다(원본 보존). train 7066 / test 786 / all 7852 전부 매칭 확인.
+2. **config에 남아 있던 외부 경로 6곳**(`llama_model`, `tokenizer_name`, `prompt_path`, `ckpt`,
+   `anno_dir`, `videos_dir`)을 이 서버 기준으로 교체. `output_dir`도 레포 안(`output/`)을 가리키던
+   것을 `runs/` 절대경로로 옮겼다(`train_run.sh` 사용 시에는 run별로 덮어써짐).
+
+## stage2의 손실 구조는 stage1과 다르다 (논문 서술 시 주의)
+
+instruct 데이터는 `conv_type='multi'` 경로(`video_llama.py:738-806`)를 타는데, 여기서는 세 스트림의
+임베딩을 **토큰으로 concat해 LLaMA를 한 번만** 통과시키고 `loss_motion`·`loss_background`에
+같은 `loss` 값을 복사해 반환한다. 따라서 stage2 총손실은 실질적으로
+
+```
+total = 1.2 x LM손실 + 0.1 x middleloss + 0.1 x middleloss_bg
+```
+
+이며, stage1처럼 스트림별 독립 LM 손실이 존재하지 않는다. 이는 원본 HAWK 설계 그대로이고 버그가
+아니다. 로그의 `motionloss`/`backgroundloss`가 `oriloss`와 동일하게 찍히는 것은 정상이다.
+
+## 논문 작성에 필요한 산출물 — 학습 완료 시 아래가 전부 수집되어야 한다
+
+`train_run.sh`가 `runs/stage2/`에 자동으로 남기는 것:
+
+- `main/checkpoint_{0..159}.pth` — epoch별 체크포인트 (약 2GB x 160 = 320GB)
+- `main/tensorboard/` — 스칼라 7종: `Loss/total`, `Loss/ori`, `Loss/motion`, `Loss/background`,
+  `Loss/middle`, `Loss/middle_bg`, `Learning Rate` (global step = epoch x 2500 + i)
+- `train.log` — 전 구간 append. **TB보다 이쪽이 권위 있는 기록**이다(chunk 재개 시 TB는 끊길 수 있음)
+- `run_info.txt` — chunk별 provenance: config 경로, GPU, git commit + dirty 여부, resume 지점
+- `config.yaml` — 실행 시점 config 사본
+- `git_diff_<ts>.patch` — 실행 시점 워킹트리 diff
+
+학습 완료 후 추가로 만들어야 하는 것:
+
+- `scripts/plot_training_curves.py`로 stage2 곡선 + CSV 생성 → `figs/stage2_curves.{png,pdf,csv}`
+- HF `backseollgi/Cerberus/stage2_finetune/`에 체크포인트(마일스톤+최종)·`train.log`·`config.yaml`·
+  곡선 백업 (stage1과 동일한 방식)
+- E1/E2 실측: `scripts/extract_representations.py` + `experiments/disentanglement.py`로 CDS 산출.
+  **stage1 체크포인트와 stage2 체크포인트 양쪽에서 뽑아야** 분리도가 finetune으로 어떻게 변했는지
+  비교할 수 있다.
+- Table-1용 VAD 정량 수치 (`scripts/run_eval.sh`, test split은 `all_videos_test.local.json`)

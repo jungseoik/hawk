@@ -28,7 +28,9 @@ git 설정이 복구되고, 데이터·모델·체크포인트가 살아있는�
 | **Stage-2 finetune** | ⏳ **미시작** (데이터·config 준비 완료) |
 | 논문 원고 | ◐ 5개 장 작성, 결과·conclusion·references 미작성 |
 
-**Stage-1 결과 요약**: `cos(z_a,z_m)`·`cos(z_m,z_b)` 모두 **0.0000 수렴** — CVD 상보성(C1/C2)의 직접 증거.
+**Stage-1 결과 요약**: 분리 손실 `middleloss`(= 1 − cos(z_a,z_m))·`middleloss_bg`(= (1 + cos(z_m,z_b))/2)가
+모두 **0.0000 수렴** ⇒ **`cos(z_a,z_m) → +1`(정렬), `cos(z_m,z_b) → −1`(반상관)** — CVD 상보성(C1/C2)의 직접 증거.
+(로그값은 코사인이 아니라 손실입니다. `hawk/tasks/base_task.py:264-270`)
 상세: [`runs/core/STOPPED.md`](runs/core/STOPPED.md), [`hawk/docs/training-log.md`](hawk/docs/training-log.md),
 곡선: `hawk/figs/stage1_curves.{png,pdf,csv}`
 
