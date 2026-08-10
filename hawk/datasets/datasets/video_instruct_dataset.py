@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
 import copy
 from hawk.processors import transforms_video,AlproVideoTrainProcessor
 from torchvision import transforms
-from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background,load_video_motion_and_background
+from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_video_background,load_video_motion_and_background,apply_shared_transform
 from hawk.conversation.conversation_video import Conversation,SeparatorStyle
 import numpy as np
 
@@ -96,7 +96,7 @@ llama_v2_video_conversation = Conversation(
 IGNORE_INDEX = -100
 
 class Video_Instruct_Dataset(BaseDataset):
-    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna'):
+    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna', static_ablation='flow'):
         """
         vis_root (string): Root directory of Llava images (e.g. webvid_eval/video/)
         ann_root (string): Root directory of video (e.g. webvid_eval/annotations/)
@@ -122,6 +122,7 @@ class Video_Instruct_Dataset(BaseDataset):
         ).transform
         self.data_type = data_type
         self.model_type = model_type
+        self.static_ablation = static_ablation
 
     def _get_video_path(self, sample):
         rel_video_fp = sample['video']
@@ -161,14 +162,17 @@ class Video_Instruct_Dataset(BaseDataset):
                     n_frms=self.num_frm,
                     height=self.resize_size,
                     width=self.resize_size,
-                    sampling ="uniform", return_msg = True
+                    sampling ="uniform", return_msg = True,
+                    ablation=self.static_ablation,
                 )
 
-                random_seed = random.randint(0, 2**32 - 1)
-                setup_seed(random_seed)
-                video = self.transform(video)
-                video_motion = self.transform(video_motion)
-                video_background = self.transform(video_background)
+                # 세 스트림에 동일한 crop을 적용한다. 수정 전에는 setup_seed를 한 번만
+                # 걸고 transform을 세 번 호출해, RandomResizedCrop이 스트림마다 다른
+                # 영역을 잘라냈다 — 그 결과 M⊙x + (1−M)⊙x = x 가 성립하지 않았다.
+                # (프레임 인덱스는 위에서 sampling="uniform"이라 이미 일치한다.)
+                video, video_motion, video_background = apply_shared_transform(
+                    self.transform, (video, video_motion, video_background)
+                )
                 
                 if 'cn' in self.data_type:
                     msg = ""

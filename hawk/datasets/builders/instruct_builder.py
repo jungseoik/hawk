@@ -46,7 +46,10 @@ class Instruct_Builder(BaseDatasetBuilder):
             num_video_query_token = num_video_query_token,
             tokenizer_name = tokenizer_name,
             data_type = self.config.data_type,
-            model_type = self.config.model_type
+            model_type = self.config.model_type,
+            # 정적 스트림 통제군: flow(제안) / random_mask / duplicate / zero.
+            # 네 조건 모두 아키텍처·파라미터·토큰 수가 같고 정적 스트림의 내용만 다르다.
+            static_ablation = self.config.get("static_ablation", "flow"),
         )
 
         return datasets

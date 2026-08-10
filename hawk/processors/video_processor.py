@@ -24,7 +24,29 @@ decord.bridge.set_bridge("torch")
 
 mag_threshold = 0.2
 
-def compute_motion_and_background(frames, frame_list):
+def _block_shuffle_mask(mask, block=16, seed=None):
+    """마스크를 블록 단위로 뒤섞는다 (면적비 보존, 위치 정보 파괴).
+
+    화소 단위로 섞으면 소금-후추 잡음이 되어 인코더가 의미와 무관한 이유로 다르게
+    반응한다. 블록 단위로 섞으면 국소 질감은 남기고 "어느 영역이 움직였는가"라는
+    의미적 대응만 끊을 수 있다.
+    """
+    h, w = mask.shape
+    ph, pw = (block - h % block) % block, (block - w % block) % block
+    padded = np.pad(mask, ((0, ph), (0, pw)))
+    H, W = padded.shape
+
+    blocks = padded.reshape(H // block, block, W // block, block).transpose(0, 2, 1, 3)
+    flat = blocks.reshape(-1, block, block)
+
+    rng = np.random.default_rng(seed)
+    flat = flat[rng.permutation(len(flat))]
+
+    out = flat.reshape(H // block, W // block, block, block).transpose(0, 2, 1, 3).reshape(H, W)
+    return out[:h, :w]
+
+
+def compute_motion_and_background(frames, frame_list, ablation="flow"):
     """Compute both motion and background frames in a single optical flow pass.
 
     Motion mask: regions where optical flow magnitude > threshold (moving objects)
@@ -33,18 +55,43 @@ def compute_motion_and_background(frames, frame_list):
     motion_frames = []
     background_frames = []
     numpy_frame = frames.asnumpy()
-    frame_list[0] = 1
+    # 주의: 이전 구현은 `frame_list[0] = 1`로 첫 인덱스를 덮어썼다. i-1 = -1 로 뒤쪽
+    # 프레임을 참조하는 것을 막으려는 의도였겠지만, 그 결과 동적/정적 스트림의 첫
+    # 프레임만 외형 스트림과 다른 시점이 되어 상보성 항등식이 그 프레임에서 깨졌다
+    # (실측: frame 0 최대 오차 18, 나머지 프레임 0.000). 호출자의 리스트를 제자리에서
+    # 변형해 타임스탬프 메시지도 어긋났다. 출력 프레임은 그대로 두고 "이전 프레임"만
+    # 클램프한다 — i = 0 이면 플로우가 0이 되어 전 화면이 정적 스트림으로 간다.
     for i in frame_list:
-        prev_frame = cv2.cvtColor(numpy_frame[i-1], cv2.COLOR_RGB2GRAY)
+        prev_frame = cv2.cvtColor(numpy_frame[max(i - 1, 0)], cv2.COLOR_RGB2GRAY)
         current_frame = cv2.cvtColor(numpy_frame[i], cv2.COLOR_RGB2GRAY)
         flow = cv2.calcOpticalFlowFarneback(prev_frame, current_frame, None, 0.5, 3, 10, 3, 5, 1.2, 0)
         mag, _ = cv2.cartToPolar(flow[...,0], flow[...,1])
 
         motion_mask = (mag > mag_threshold).astype(np.uint8)
-        motion_mask_3ch = np.stack((motion_mask, motion_mask, motion_mask), axis=-1)
+
+        # --- 정적 스트림 통제군 (ablation) ---------------------------------
+        # 네 조건 모두 아키텍처·파라미터 수·시각 토큰 수가 동일하고, 정적 스트림이
+        # 담는 *내용*만 다르다. 따라서 성능 차이는 용량이 아니라 내용에 귀속된다.
+        #   flow        : 제안 방식. 정적 = (1 − M) ⊙ x
+        #   random_mask : M을 블록 단위로 뒤섞어 면적비는 보존하되 위치를 무의미하게.
+        #                 여기서도 이득이 나오면 "배경 내용" 주장은 성립하지 않는다.
+        #   duplicate   : 정적 = 원본 프레임 전체. 분해 없이 스트림만 하나 더.
+        #   zero        : 정적 = 0. 용량은 있고 내용은 없는 조건.
+        if ablation == "random_mask":
+            bg_mask = 1 - _block_shuffle_mask(motion_mask)
+        elif ablation == "duplicate":
+            bg_mask = np.ones_like(motion_mask)
+        elif ablation == "zero":
+            bg_mask = np.zeros_like(motion_mask)
+        elif ablation == "flow":
+            bg_mask = 1 - motion_mask
+        else:
+            raise ValueError(f"unknown static-stream ablation: {ablation!r}")
+
+        motion_mask_3ch = np.stack((motion_mask,) * 3, axis=-1)
         motion_frames.append(numpy_frame[i] * motion_mask_3ch)
 
-        bg_mask_3ch = 1 - motion_mask_3ch
+        bg_mask_3ch = np.stack((bg_mask,) * 3, axis=-1)
         background_frames.append(numpy_frame[i] * bg_mask_3ch)
 
     return np.stack(motion_frames, axis=0), np.stack(background_frames, axis=0)
@@ -150,7 +197,7 @@ def load_video_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampl
     return frms, msg
 
 
-def load_video_motion_and_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="uniform", return_msg=False):
+def load_video_motion_and_background(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="uniform", return_msg=False, ablation="flow"):
     """Load video and compute both motion and background frames in a single optical flow pass."""
     decord.bridge.set_bridge('native')
     vr = VideoReader(uri=video_path, height=height, width=width)
@@ -170,7 +217,7 @@ def load_video_motion_and_background(video_path, n_frms=MAX_INT, height=-1, widt
         raise NotImplementedError
 
     frames = vr.get_batch(np.arange(len(vr)))
-    motion_frms, bg_frms = compute_motion_and_background(frames, indices)
+    motion_frms, bg_frms = compute_motion_and_background(frames, indices, ablation=ablation)
 
     decord.bridge.set_bridge("torch")
 
@@ -220,6 +267,63 @@ def load_video(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="unifor
     return frms, msg
 
 
+# ---------------------------------------------------------------------------
+# 세 스트림(외형 / 동적 / 정적)의 정합을 보장하는 헬퍼
+#
+# CERBERUS의 최상위 주장은 상보성 항등식  M ⊙ x + (1 − M) ⊙ x = x  이다. 이 등식은
+# 세 스트림이 **같은 프레임을 같은 방식으로 자른** 것일 때만 성립한다. 수정 전 코드는
+# 두 지점에서 이를 깨뜨렸다.
+#
+#  1) 프레임 선택: load_video 와 load_video_motion_and_background 를 각각 호출하는데,
+#     "headtail" 샘플링은 rnd.sample 기반이라 호출마다 다른 프레임이 뽑힌다.
+#     → 외형 스트림과 동적/정적 스트림이 서로 다른 시점을 보게 된다.
+#  2) 증강: transform 안의 RandomResizedCropVideo 는 호출마다 새 crop 파라미터를
+#     뽑으므로, 세 번 호출하면 스트림마다 다른 영역이 잘린다.
+#     (실측: (0,80,360,480) / (31,120,320,394) / (5,71,343,350))
+#
+# 두 헬퍼는 각 난수 소비 직전에 동일한 시드를 걸어 세 스트림을 일치시킨다. 샘플 간
+# 다양성은 유지된다 — 시드 자체를 매 샘플 새로 뽑기 때문이다.
+# ---------------------------------------------------------------------------
+
+
+def load_streams_aligned(vpath, n_frms, image_size, sampling="uniform", ablation="flow"):
+    """세 스트림을 동일한 프레임 인덱스에서 만든다.
+
+    sampling="uniform"이면 선택이 결정론적이라 시드가 없어도 일치하지만, headtail과
+    같은 난수 기반 샘플링에서도 동일하게 동작하도록 항상 시드를 맞춘다.
+    """
+    seed = rnd.randint(0, 2**32 - 1)
+
+    rnd.seed(seed)
+    clip = load_video(
+        video_path=vpath, n_frms=n_frms, height=image_size, width=image_size,
+        sampling=sampling,
+    )
+
+    rnd.seed(seed)
+    clip_motion, clip_background = load_video_motion_and_background(
+        video_path=vpath, n_frms=n_frms, height=image_size, width=image_size,
+        sampling=sampling, ablation=ablation,
+    )
+
+    return clip, clip_motion, clip_background
+
+
+def apply_shared_transform(transform, clips):
+    """세 스트림에 동일한 crop 파라미터로 transform을 적용한다.
+
+    RandomResizedCrop.get_params 는 torch RNG를 쓰므로, 호출 직전 같은 시드를 걸면
+    같은 (i, j, h, w)가 나온다.
+    """
+    seed = int(torch.randint(0, 2**31 - 1, (1,)).item())
+
+    out = []
+    for clip in clips:
+        torch.manual_seed(seed)
+        out.append(transform(clip))
+    return out
+
+
 class AlproVideoBaseProcessor(BaseProcessor):
     def __init__(self, mean=None, std=None, n_frms=MAX_INT):
         if mean is None:
@@ -237,7 +341,13 @@ class ToUint8(object):
         pass
 
     def __call__(self, tensor):
-        return tensor.to(torch.uint8)
+        # clamp 없이 캐스트하면 PyTorch 는 클램프가 아니라 **wraparound(mod 256)** 한다:
+        #   [-3.7, -1.2, 258.9, 300.0] -> [253, 255, 2, 44]
+        # bicubic 보간은 마스크 경계(= 움직이는 객체의 윤곽)에서 값을 범위 밖으로
+        # 밀어내므로, 검게 가려져야 할 화소가 253 같은 밝은 점으로 뒤집힌다.
+        # 실측 범위 이탈 비율: appearance 0.000%, motion 0.52%, background 0.36%
+        # — 마스킹된 스트림에서만 발생한다. 반드시 클램프한 뒤 캐스트한다.
+        return tensor.clamp(0, 255).to(torch.uint8)
 
     def __repr__(self):
         return self.__class__.__name__
@@ -317,22 +427,10 @@ class AlproVideoTrainProcessor(AlproVideoBaseProcessor):
         Returns:
             torch.tensor: video clip after transforms. Size is (C, T, size, size).
         """
-        clip = load_video(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
-            sampling="headtail",
+        clips = load_streams_aligned(
+            vpath, self.n_frms, self.image_size, sampling="headtail"
         )
-        clip_motion, clip_background = load_video_motion_and_background(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
-            sampling="headtail",
-        )
-
-        return self.transform(clip), self.transform(clip_motion), self.transform(clip_background)
+        return tuple(apply_shared_transform(self.transform, clips))
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -384,22 +482,12 @@ class AlproVideoEvalProcessor(AlproVideoBaseProcessor):
         Returns:
             torch.tensor: video clip after transforms. Size is (C, T, size, size).
         """
-        clip = load_video(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
+        # 평가 경로는 결정론적이어야 하므로 uniform으로 통일한다. (수정 전에는 외형만
+        # uniform, 동적/정적은 headtail이라 스트림 간 프레임이 어긋났다.)
+        clips = load_streams_aligned(
+            vpath, self.n_frms, self.image_size, sampling="uniform"
         )
-
-        clip_motion, clip_background = load_video_motion_and_background(
-            video_path=vpath,
-            n_frms=self.n_frms,
-            height=self.image_size,
-            width=self.image_size,
-            sampling="headtail",
-        )
-
-        return self.transform(clip), self.transform(clip_motion), self.transform(clip_background)
+        return tuple(apply_shared_transform(self.transform, clips))
 
     @classmethod
     def from_config(cls, cfg=None):
