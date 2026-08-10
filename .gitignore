@@ -23,4 +23,3 @@ weights/
 
 # Background-critical 큐레이션 산출물 (재생성 가능, 주석 완료본만 별도 커밋)
 experiments/bg_critical_benchmark/annotation_queue.json
-experiments/bg_critical_benchmark/mask_statistics.json

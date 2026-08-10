@@ -38,30 +38,50 @@ N_PROBE_FRAMES = 8
 
 
 def motion_ratio(video_path, n_frms=N_PROBE_FRAMES):
-    """클립의 평균 motion-mask 비율. 학습 파이프라인과 같은 설정을 쓴다."""
+    """클립의 평균 motion-mask 비율. **학습 파이프라인과 동일한 방식**으로 잰다.
+
+    중요: `compute_motion_and_background` 는 각 샘플 프레임 i 에 대해 **바로 앞
+    프레임 i−1** 과의 플로우를 계산한다. 멀리 떨어진 샘플 프레임끼리 계산하면
+    변위가 커져 움직임이 크게 과대 추정된다. 실측 대조(데이터셋당 6클립):
+
+        데이터셋       학습 파이프라인   샘플간 플로우(오측)
+        UCF_Crime          0.072            0.433
+        ShanghaiTech       0.061            0.282
+        UBnormal           0.054            0.116
+        DoTA               0.431            0.670
+
+    여기서 재는 값이 논문 표에 들어가고 H1 검증의 전제가 되므로, 학습이 실제로
+    보는 마스크와 같은 방식이어야 한다. 수정 후 두 값이 일치한다(0.076 / 0.066 /
+    0.053 / 0.434).
+    """
     cap = cv2.VideoCapture(video_path)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if total < 2:
         cap.release()
         return None
 
-    indices = np.linspace(0, total - 1, n_frms + 1).astype(int)
-    ratios, prev_gray = [], None
+    # load_video 의 uniform 샘플링과 동일한 인덱스 집합
+    indices = np.arange(0, total, total / n_frms).astype(int).tolist()
+    ratios = []
 
     for idx in indices:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
-        ok, frame = cap.read()
-        if not ok:
+        prev_idx = max(int(idx) - 1, 0)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, prev_idx)
+        ok_prev, prev_frame = cap.read()
+        ok_cur, cur_frame = cap.read() if prev_idx + 1 == int(idx) else (False, None)
+        if not ok_cur:                      # idx == 0 인 경우 등
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+            ok_cur, cur_frame = cap.read()
+        if not (ok_prev and ok_cur):
             continue
-        frame = cv2.resize(frame, (224, 224))
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if prev_gray is not None:
-            flow = cv2.calcOpticalFlowFarneback(
-                prev_gray, gray, None, 0.5, 3, 10, 3, 5, 1.2, 0
-            )
-            mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-            ratios.append(float((mag > MAG_THRESHOLD).mean()))
-        prev_gray = gray
+
+        prev_gray = cv2.cvtColor(cv2.resize(prev_frame, (224, 224)), cv2.COLOR_BGR2GRAY)
+        cur_gray = cv2.cvtColor(cv2.resize(cur_frame, (224, 224)), cv2.COLOR_BGR2GRAY)
+        flow = cv2.calcOpticalFlowFarneback(
+            prev_gray, cur_gray, None, 0.5, 3, 10, 3, 5, 1.2, 0
+        )
+        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        ratios.append(float((mag > MAG_THRESHOLD).mean()))
 
     cap.release()
     return float(np.mean(ratios)) if ratios else None
