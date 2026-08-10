@@ -47,8 +47,7 @@ def real_run(cfg_path, ckpt, clips_file, out, pool="mean"):  # pragma: no cover
     from hawk.common.config import Config
     from hawk.common.registry import registry
     import hawk.models  # noqa: F401  (register arch)
-    from hawk.processors.video_processor import (
-        load_video, load_video_motion_and_background)
+    import hawk.processors  # noqa: F401  (register processors)
 
     class _A:  # minimal args shim for Config
         def __init__(self, p): self.cfg_path = p; self.options = None
@@ -61,10 +60,26 @@ def real_run(cfg_path, ckpt, clips_file, out, pool="mean"):  # pragma: no cover
     with open(clips_file) as f:
         clips = [ln.strip() for ln in f if ln.strip()]
 
+    # 학습과 동일한 전처리를 거쳐야 한다.
+    #
+    # 수정 전에는 `load_video(clip)` 을 기본 인자로 불러 **원본 해상도**의 `[0, 255]`
+    # 텐서를 그대로 인코더에 넣었다. 학습 입력은 224x224 에 `ToTensorVideo` 를 거친
+    # `[0, 1]` 범위이므로, E1 의 CDS·CKA·상호정보량·코사인 분포 전체가 학습 분포에서
+    # 255배 벗어난 입력에 대해 측정되고 있었다. 그렇게 잰 분리도는 학습된 모델의
+    # 분리도가 아니다. eval processor 를 써서 세 스트림을 정합 로드한다.
+    vp_all = cfg.datasets_cfg.webvid.vis_processor
+    vp_cfg = vp_all.get("eval", None) or vp_all.get("train")
+    if "eval" not in vp_cfg.name:
+        raise ValueError(
+            f"표현 추출에 train processor('{vp_cfg.name}')가 선택되었습니다. "
+            "RandomResizedCrop 때문에 같은 클립도 매번 다른 표현을 냅니다."
+        )
+    vis_processor = registry.get_processor_class(vp_cfg.name).from_config(vp_cfg)
+
     Za, Zm, Zb = [], [], []
     for clip in clips:
-        x_a = load_video(clip).unsqueeze(0).to("cuda")
-        x_m, x_b, _ = load_video_motion_and_background(clip)
+        x_a, x_m, x_b = vis_processor(clip)
+        x_a = x_a.unsqueeze(0).to("cuda")
         x_m = x_m.unsqueeze(0).to("cuda"); x_b = x_b.unsqueeze(0).to("cuda")
         with torch.no_grad():
             _, _, z_a = model.encode_videoQformer_visual(x_a)

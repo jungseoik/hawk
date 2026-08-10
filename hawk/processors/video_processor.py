@@ -328,17 +328,36 @@ def apply_shared_transform(transform, clips):
     seed = int(torch.randint(0, 2**31 - 1, (1,)).item())
 
     cpu_state = torch.get_rng_state()
-    cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    # CUDA 상태는 **이미 초기화된 프로세스에서만** 건드린다. DataLoader 워커는 fork 로
+    # 생기는데, 부모가 CUDA 를 쓰고 있으면 워커에서 is_available() 은 True 이면서
+    # is_initialized() 는 False 다. 이 상태에서 get_rng_state_all() 을 부르면 CUDA 재
+    # 초기화를 시도하다 "Cannot re-initialize CUDA in forked subprocess" 로 죽고, 그
+    # 예외를 데이터셋의 bare except 가 삼켜 "Failed to fetch video after 10 retries" 로만
+    # 보인다. crop 파라미터는 CPU RNG 에서 나오므로 CUDA 상태는 필요하지도 않다.
+    cuda_states = (
+        torch.cuda.get_rng_state_all()
+        if torch.cuda.is_available() and torch.cuda.is_initialized()
+        else None
+    )
     try:
         out = []
         for clip in clips:
-            torch.manual_seed(seed)
+            # torch.manual_seed 는 CUDA 까지 시드하므로 fork 워커에서 터진다.
+            # crop 파라미터는 CPU RNG 에서만 나오므로 CPU 상태만 갈아끼운다.
+            torch.set_rng_state(_cpu_seed_state(seed))
             out.append(transform(clip))
     finally:
         torch.set_rng_state(cpu_state)
         if cuda_states is not None:
             torch.cuda.set_rng_state_all(cuda_states)
     return out
+
+
+def _cpu_seed_state(seed):
+    """주어진 시드로 초기화된 CPU RNG 상태를 만든다 (CUDA 를 건드리지 않고)."""
+    g = torch.Generator()
+    g.manual_seed(int(seed))
+    return g.get_state()
 
 
 class AlproVideoBaseProcessor(BaseProcessor):

@@ -106,6 +106,46 @@ def test_augmentation_uses_one_shared_crop(processor_cls):
     )
 
 
+def test_transform_works_inside_forked_worker():
+    """DataLoader 워커(fork) 안에서도 로더가 동작해야 한다.
+
+    부모가 CUDA 를 쓰고 있으면 fork 된 워커에서는 `torch.cuda.is_available()` 이 True
+    이면서 `is_initialized()` 는 False 다. 이 상태에서 CUDA RNG 를 건드리면
+    "Cannot re-initialize CUDA in forked subprocess" 로 죽는데, 데이터셋의 bare except
+    가 그 예외를 삼켜 "Failed to fetch video after 10 retries" 로만 보인다 — 실제로
+    이 실수로 어블레이션 4-arm 이 전부 즉사했다.
+
+    격리된 서브프로세스에서 검사한다. 이 테스트 프로세스 안에서 직접 fork 하면, 앞선
+    테스트들이 만들어 둔 스레드(decord/torch) 때문에 fork 자식이 교착한다.
+    """
+    import subprocess
+    import sys as _sys
+    import textwrap
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA 없음 — 이 회귀는 CUDA 초기화 상태에서만 재현된다")
+
+    script = textwrap.dedent(f"""
+        import torch, torch.multiprocessing as mp
+        torch.zeros(1).cuda()          # 부모에서 CUDA 초기화 = 학습 프로세스와 동일
+        def child(q):
+            try:
+                from hawk.processors import AlproVideoTrainProcessor
+                AlproVideoTrainProcessor(image_size=224, n_frms=8)({_sample_videos()[0]!r})
+                q.put("ok")
+            except Exception as exc:
+                q.put(f"{{type(exc).__name__}}: {{exc}}")
+        ctx = mp.get_context("fork")
+        q = ctx.Queue(); p = ctx.Process(target=child, args=(q,)); p.start(); p.join(120)
+        print(q.get(timeout=10))
+    """)
+    proc = subprocess.run([_sys.executable, "-c", script], capture_output=True,
+                          text=True, timeout=420, cwd=os.path.dirname(os.path.dirname(__file__)))
+    assert proc.stdout.strip().endswith("ok"), (
+        f"fork 워커에서 실패: {proc.stdout.strip()[-300:]} {proc.stderr.strip()[-300:]}"
+    )
+
+
 @pytest.mark.parametrize(
     "ablation,expected_static_coverage",
     [("flow", None), ("random_mask", None), ("duplicate", 1.0), ("zero", 0.0)],

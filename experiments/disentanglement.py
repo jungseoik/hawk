@@ -153,6 +153,66 @@ def complementary_disentanglement_score(
     return {"coverage": coverage, "redundancy": redundancy, "cds": cds}
 
 
+def collapse_diagnostics(z_a: np.ndarray, z_m: np.ndarray, z_b: np.ndarray) -> dict:
+    """표현이 퇴화(collapse)했는지 진단한다.
+
+    왜 필요한가. Stage-1 은 107 epoch 내내 분리 손실이 `0.0000` 으로 찍혔고 그것이
+    "설계 의도대로 달성"으로 읽혔다. 실제로는 병목의 **입력 비의존 편향 항만** 목표
+    부호로 회전한 퇴화 해였다 — 세 스트림 표현이 한 직선 위에 놓이는 rank-1 붕괴다.
+    손실값만으로는 이 둘을 구분할 수 없으므로, 아래 세 지표를 항상 함께 본다.
+
+      collinear_fraction  세 쌍의 |cos| 이 모두 1 에 가까운 표본의 비율. 이것이 붕괴의
+                      **주 지표**다. cos(z_a,z_m)=+1 과 cos(z_m,z_b)=-1 이 동시에
+                      성립하면 대수적으로 cos(z_a,z_b)=-1 이 강제되어 세 표현이 한
+                      직선 위에 놓인다. 스트림 *내부* 차원은 멀쩡할 수 있으므로
+                      스트림별 rank 만 봐서는 잡히지 않는다.
+      const_fraction  표본 평균 벡터가 표현 노름에서 차지하는 비율. 편향 지름길로
+                      손실을 만족시켰다면 1 에 근접한다.
+      effective_rank  스트림 내부의 유효 차원. 보조 지표 — 내부 붕괴만 잡는다.
+
+    ⚠️ CKA 는 부호에 불변이다(Gram 행렬 기반). 따라서 `z_b = -c * z_m` 인 붕괴 상태에서
+    Redundancy = CKA(z_m,z_b) = 1 이 되어 **CDS 가 0** 이 된다. 목적함수가
+    `cos -> -1` 을 지향하는 한 CDS 는 목적함수와 반대 방향을 가리킨다. 비중복성이
+    요구하는 것은 반상관(-1)이 아니라 탈상관(0)이다.
+    """
+    def eff_rank(z):
+        s = np.linalg.svd(z - z.mean(0, keepdims=True), compute_uv=False)
+        p = s / (s.sum() + 1e-12)
+        p = p[p > 0]
+        return float(np.exp(-(p * np.log(p)).sum()))
+
+    def const_frac(z):
+        mu = np.linalg.norm(z.mean(0))
+        rms = float(np.sqrt((z ** 2).sum(1).mean()))
+        return float(mu / (rms + 1e-12))
+
+    def per_sample_cos(X, Y):
+        Xn = X / (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12)
+        Yn = Y / (np.linalg.norm(Y, axis=1, keepdims=True) + 1e-12)
+        return np.sum(Xn * Yn, 1)
+
+    cos_am = per_sample_cos(z_a, z_m)
+    cos_mb = per_sample_cos(z_m, z_b)
+    cos_ab = per_sample_cos(z_a, z_b)
+    collinear = (np.abs(cos_am) > 0.95) & (np.abs(cos_mb) > 0.95) & (np.abs(cos_ab) > 0.95)
+
+    out = {
+        "collinear_fraction": float(collinear.mean()),
+        "cos_mean": {"a_m": float(cos_am.mean()), "m_b": float(cos_mb.mean()),
+                     "a_b": float(cos_ab.mean())},
+        "const_fraction": {k: const_frac(v) for k, v in
+                           (("z_a", z_a), ("z_m", z_m), ("z_b", z_b))},
+        "effective_rank": {k: eff_rank(v) for k, v in
+                           (("z_a", z_a), ("z_m", z_m), ("z_b", z_b))},
+    }
+    out["collapse_suspected"] = bool(
+        out["collinear_fraction"] > 0.5
+        or max(out["const_fraction"].values()) > 0.9
+        or min(out["effective_rank"].values()) < 2.0
+    )
+    return out
+
+
 def full_report(z_a, z_m, z_b) -> dict:
     """Convenience: full E1 diagnostic bundle for one set of representations."""
     rep = {
@@ -163,6 +223,7 @@ def full_report(z_a, z_m, z_b) -> dict:
         "cosine_motion_bg": cosine_stats(z_m, z_b),
     }
     rep.update(complementary_disentanglement_score(z_a, z_m, z_b))
+    rep["collapse"] = collapse_diagnostics(z_a, z_m, z_b)
     return rep
 
 
