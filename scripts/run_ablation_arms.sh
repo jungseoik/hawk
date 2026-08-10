@@ -19,11 +19,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-GPUS="${GPUS:-0,1}"
-NPROC="${NPROC:-2}"
-ARMS="${ARMS:-flow random_mask duplicate zero}"
+# 주의: 이 컨테이너는 환경에 NPROC=42 (CPU 코어 수로 추정) 를 이미 심어 두었다.
+# 일반적인 이름을 쓰면 그 값을 물려받아 torchrun 이 GPU 42장을 요구하고
+# "CUDA error: invalid device ordinal" 로 즉사한다. 반드시 네임스페이스를 붙일 것.
+ABL_GPUS="${ABL_GPUS:-0,1}"
+ABL_NPROC="${ABL_NPROC:-2}"
+ABL_ARMS="${ABL_ARMS:-flow random_mask duplicate zero}"
 
-for arm in $ARMS; do
+for arm in $ABL_ARMS; do
   cfg="configs/train_configs/ablation/stage2_${arm}.yaml"
   [ -f "$cfg" ] || { echo "[ablation] config 없음: $cfg"; exit 1; }
 
@@ -32,7 +35,7 @@ for arm in $ARMS; do
   echo "=============================================================="
 
   MASTER_PORT=$((10200 + $(echo "$arm" | cksum | cut -d' ' -f1) % 500)) \
-    bash scripts/train_run.sh "$cfg" "abl_${arm}" "$GPUS" "$NPROC"
+    bash scripts/train_run.sh "$cfg" "abl_${arm}" "$ABL_GPUS" "$ABL_NPROC"
 
   echo "[ablation] arm=${arm} 종료 (exit $?)  $(date '+%F %T')"
 done
