@@ -16,7 +16,7 @@ from enum import auto, Enum
 from typing import List, Tuple, Any
 import os
 from hawk.common.registry import registry
-from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion
+from hawk.processors.video_processor import ToTHWC,ToUint8,load_video,load_video_motion,load_streams_aligned,apply_shared_transform
 from hawk.processors import Blip2ImageEvalProcessor
             
 from hawk.models.ImageBind.data import load_and_transform_audio_data
@@ -183,7 +183,12 @@ class Chat:
             conv.append_message(conv.roles[0], text)
 
     def answer(self, conv, img_list, max_new_tokens=300, num_beams=1, min_length=1, top_p=0.9,
-               repetition_penalty=1.0, length_penalty=1, temperature=1.0, max_length=2000):
+               repetition_penalty=1.0, length_penalty=1, temperature=1.0, max_length=2000,
+               do_sample=True):
+        # do_sample 은 데모(app.py)에서는 True 가 자연스럽지만, **평가에서는 반드시
+        # False(greedy)** 여야 한다. 표본 추출을 켜 두면 같은 입력에 대해서도 응답이
+        # 달라지고, 그 변동이 BSI(배경 교체 전후 응답 차이)에 양의 편향으로 들어가
+        # "배경을 인과적으로 활용한다"는 결론을 인공적으로 만들 수 있다.
         conv.append_message(conv.roles[1], None)
         embs = self.get_context_emb(conv, img_list) #torch.Size([1, 312, 4096])
 
@@ -208,12 +213,12 @@ class Chat:
             max_new_tokens=max_new_tokens,
             stopping_criteria=stopping_criteria,
             num_beams=num_beams,
-            do_sample=True,
+            do_sample=do_sample,
             min_length=min_length,
-            top_p=top_p,
+            top_p=top_p if do_sample else None,
             repetition_penalty=repetition_penalty,
             length_penalty=length_penalty,
-            temperature=temperature,
+            temperature=temperature if do_sample else None,
         )
         output_token = outputs[0]
         if output_token[0] == 0:  # the model might output a unknow token <unk> at the beginning. remove it
@@ -285,35 +290,34 @@ class Chat:
             ext = os.path.splitext(video_path)[-1].lower()
             print(video_path)
             # image = self.vis_processor(image).unsqueeze(0).to(self.device)
-            video, msg = load_video(
-                video_path=video_path,
-                n_frms=32,
-                height=224,
-                width=224,
-                sampling ="uniform", return_msg = True
+            # 세 스트림을 정합된 프레임·정합된 crop 으로 함께 로드한다.
+            #
+            # 수정 전에는 load_video 와 load_video_motion 만 호출하고 배경 스트림을
+            # 아예 만들지 않았다. 그 결과 추론 경로가 CERBERUS 를 **dual-branch 로**
+            # 실행했다 — 논문의 기여인 정적 스트림이 추론 시점에 존재하지 않았고,
+            # 학습은 시각 토큰 32x3=96 개로 하는데 추론은 64 개만 넣어 train/test
+            # 불일치까지 있었다. 데모(app.py)와 모든 평가가 이 경로를 쓴다.
+            video, video_motion, video_background = load_streams_aligned(
+                video_path, n_frms=32, image_size=224, sampling="uniform"
             )
-            video_motion, msg_motion = load_video_motion(
-                    video_path=video_path,
-                    n_frms=32,
-                    height=224,
-                    width=224,
-                    sampling ="uniform", return_msg = True
+            video, video_motion, video_background = apply_shared_transform(
+                self.vis_processor.transform, (video, video_motion, video_background)
             )
-            video = self.vis_processor.transform(video)
-            video_motion = self.vis_processor.transform(video_motion)
-            
+
             video = video.unsqueeze(0).to(self.device)
             video_motion = video_motion.unsqueeze(0).to(self.device)
-            # print(image)
+            video_background = video_background.unsqueeze(0).to(self.device)
         else:
             raise NotImplementedError
-        
-        
-        # conv.system = "You can understand the video that the user provides.  Follow the instructions carefully and explain your answers in detail."
-        image_emb, _, _ = self.model.encode_videoQformer_visual(video) # 1,32,4096
-        image_motion_emb, _, _ = self.model.encode_videoQformer_visual(video_motion, motion=True) # 1,32,4096
-        img_list.append(torch.cat((image_emb, image_motion_emb), dim=1))
-        # img_list.append(image_motion_emb) 
+
+        image_emb, _, _ = self.model.encode_videoQformer_visual(video)                      # 1,32,4096
+        image_motion_emb, _, _ = self.model.encode_videoQformer_visual(video_motion, motion=True)
+        image_background_emb, _, _ = self.model.encode_videoQformer_visual(
+            video_background, background=True
+        )
+        img_list.append(
+            torch.cat((image_emb, image_motion_emb, image_background_emb), dim=1)
+        )
         conv.append_message(conv.roles[0], "<Video><ImageHere></Video> ")
         return "Received."
 

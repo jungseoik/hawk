@@ -1,0 +1,270 @@
+#!/usr/bin/env python
+"""이상 이해 성능 배치 평가 — 설명 생성(A)과 질의 응답(B).
+
+레포에 BLEU/GPT-guided 점수를 계산하는 코드가 없어서, 학습이 끝나도 논문 Table 1 을
+채울 수단이 없었다. 이 스크립트가 그 구멍을 메운다.
+
+설계 원칙 세 가지:
+
+1. **결정론.** 생성은 greedy(`do_sample=False`)로 고정한다. 표본 추출을 켜면 같은
+   입력에도 응답이 달라지고, 그 변동이 BSI(배경 교체 전후 응답 차이)에 양의 편향으로
+   들어가 "배경을 인과적으로 활용한다"는 결론을 인공적으로 만들 수 있다.
+2. **arm 간 비교 가능성.** 프롬프트·프레임 수·최대 토큰·시드가 전부 고정되며 결과
+   파일에 함께 기록된다. 두 arm 의 수치를 비교하려면 이 값들이 같아야 한다.
+3. **판정자 분리.** BLEU 는 의존성 없이 항상 계산한다. GPT-guided 3종
+   (Reasonability / Detail / Consistency)은 외부 LLM 판정자가 필요하므로 기본은
+   꺼져 있고, `--judge` 로 명시적으로 켠다. 판정자 없이 나온 결과를 GPT-guided 로
+   보고해서는 안 된다.
+
+사용법:
+    $CERBERUS_PY scripts/evaluate.py \
+        --cfg configs/eval_configs/eval.yaml \
+        --ckpt /home/work/seoik/runs/abl_flow/main/checkpoint_39.pth \
+        --out experiments/out/eval_abl_flow.json --limit 0
+
+    # 여러 arm 을 한 번에 비교
+    $CERBERUS_PY scripts/evaluate.py --compare experiments/out/eval_*.json
+"""
+import argparse
+import glob
+import json
+import os
+import sys
+import time
+
+ROOT = os.environ.get("CERBERUS_ROOT", "/home/work/seoik")
+DEFAULT_ANNO = f"{ROOT}/hawk_anomaly/Annotation/All_Mix/all_videos_test.local.json"
+DEFAULT_VIDEOS = f"{ROOT}/hawk_anomaly/Videos"
+
+
+# ---------------------------------------------------------------------------
+# 지표
+# ---------------------------------------------------------------------------
+def compute_bleu(references, hypotheses):
+    """BLEU-1..4. 캡셔닝 논문 표준 구현(pycocoevalcap)을 쓴다.
+
+    자체 구현을 쓰면 토큰화 차이 때문에 공개 수치와 비교할 수 없게 된다.
+    """
+    from pycocoevalcap.bleu.bleu import Bleu
+    from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer  # noqa: F401  (문서화 목적)
+
+    gts = {str(i): [r.strip().lower()] for i, r in enumerate(references)}
+    res = {str(i): [h.strip().lower()] for i, h in enumerate(hypotheses)}
+    scores, _ = Bleu(4).compute_score(gts, res)
+    return {f"BLEU-{i + 1}": float(s) for i, s in enumerate(scores)}
+
+
+def judge_gpt_guided(records, judge_spec):
+    """GPT-guided 3종. 외부 판정자가 필요하므로 명시적으로 켤 때만 동작한다.
+
+    판정자를 붙일 때 반드시 함께 보고해야 하는 것 (심사 지적 사항):
+      - 판정 모델의 정확한 버전과 프롬프트 전문
+      - 제시 순서 무작위화 여부 (자기선호 편향 통제)
+      - 최소 100 샘플에 대한 인간-판정자 일치도
+    """
+    raise NotImplementedError(
+        "GPT-guided 판정자가 아직 연결되지 않았습니다.\n"
+        f"  요청된 판정자: {judge_spec}\n"
+        "  판정자를 붙이기 전까지 이 지표를 논문에 보고하지 마십시오. "
+        "BLEU 만으로 arm 간 비교는 가능합니다."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 추론
+# ---------------------------------------------------------------------------
+def build_chat(cfg_path, ckpt, gpu_id):
+    from hawk.common.config import Config
+    from hawk.common.registry import registry
+    from hawk.conversation.conversation_video import Chat
+    import hawk.models  # noqa: F401
+    import hawk.processors  # noqa: F401
+    import hawk.tasks  # noqa: F401
+
+    class _Args:
+        cfg_path = None
+        options = None
+
+    args = _Args()
+    args.cfg_path = cfg_path
+    cfg = Config(args)
+
+    model_cfg = cfg.model_cfg
+    model_cfg.device_8bit = gpu_id
+    if ckpt:
+        model_cfg.ckpt = ckpt          # arm 별 체크포인트로 덮어쓴다
+
+    model = registry.get_model_class(model_cfg.arch).from_config(model_cfg).to(f"cuda:{gpu_id}")
+    model.eval()
+
+    # 평가에는 반드시 eval processor(`alpro_video_eval`)를 써야 한다. train processor 는
+    # RandomResizedCrop 이 걸려 있어 같은 클립을 두 번 평가해도 결과가 달라진다.
+    # eval.yaml 은 `train:` 키 아래에 eval processor 를 두고 있으므로 둘 다 받아들이되,
+    # 최종적으로 선택된 프로세서 이름을 검사해 train 계열이면 거부한다.
+    vp_all = cfg.datasets_cfg.webvid.vis_processor
+    vp_cfg = vp_all.get("eval", None) or vp_all.get("train")
+    if "eval" not in vp_cfg.name:
+        raise ValueError(
+            f"평가에 train processor('{vp_cfg.name}')가 선택되었습니다. "
+            "RandomResizedCrop 때문에 결과가 재현되지 않습니다. "
+            "config 의 vis_processor 를 'alpro_video_eval' 로 바꾸십시오."
+        )
+    vis_processor = registry.get_processor_class(vp_cfg.name).from_config(vp_cfg)
+
+    return Chat(model, vis_processor, device=f"cuda:{gpu_id}")
+
+
+def generate_one(chat, video_path, question, max_new_tokens, num_beams):
+    from hawk.conversation.conversation_video import conv_llava_llama_2
+
+    conv = conv_llava_llama_2.copy()
+    conv.system = ""
+    img_list = []
+    chat.upload_video_without_audio(video_path, conv, img_list)
+    chat.ask(question, conv)
+    text, _ = chat.answer(
+        conv=conv,
+        img_list=img_list,
+        max_new_tokens=max_new_tokens,
+        num_beams=num_beams,
+        do_sample=False,            # 결정론 — 설계 원칙 1
+    )
+    return text.strip()
+
+
+# ---------------------------------------------------------------------------
+def run_eval(args):
+    with open(args.anno) as f:
+        samples = json.load(f)
+    if args.limit:
+        samples = samples[: args.limit]
+
+    print(f"[eval] 클립 {len(samples)}개 | ckpt={args.ckpt or '(config 기본값)'}")
+    chat = build_chat(args.cfg, args.ckpt, args.gpu_id)
+
+    records, failures = [], 0
+    t0 = time.time()
+    for i, sample in enumerate(samples, 1):
+        video_path = os.path.join(args.videos_dir, sample["video"])
+        try:
+            description = generate_one(
+                chat, video_path, args.describe_prompt, args.max_new_tokens, args.num_beams
+            )
+            qa = sample.get("QA") or []
+            answer = (
+                generate_one(chat, video_path, qa[0]["q"], args.max_new_tokens, args.num_beams)
+                if qa else None
+            )
+            records.append({
+                "video": sample["video"],
+                "gt_description": sample.get("description", ""),
+                "pred_description": description,
+                "question": qa[0]["q"] if qa else None,
+                "gt_answer": qa[0]["a"] if qa else None,
+                "pred_answer": answer,
+            })
+        except Exception as exc:
+            failures += 1
+            print(f"  [실패] {sample['video']}: {exc}")
+
+        if i % 25 == 0:
+            rate = i / (time.time() - t0)
+            print(f"  {i}/{len(samples)}  ({rate:.2f} clip/s, 실패 {failures})")
+
+    metrics = {
+        "description": compute_bleu(
+            [r["gt_description"] for r in records],
+            [r["pred_description"] for r in records],
+        )
+    }
+    qa_records = [r for r in records if r["gt_answer"] and r["pred_answer"]]
+    if qa_records:
+        metrics["qa"] = compute_bleu(
+            [r["gt_answer"] for r in qa_records], [r["pred_answer"] for r in qa_records]
+        )
+
+    if args.judge:
+        metrics["gpt_guided"] = judge_gpt_guided(records, args.judge)
+
+    out = {
+        # 재현에 필요한 조건은 전부 결과 파일에 박아 둔다. 이 값이 다른 두 파일을
+        # 나란히 놓고 비교해서는 안 된다.
+        "config": {
+            "cfg": args.cfg,
+            "ckpt": args.ckpt,
+            "anno": args.anno,
+            "n_clips": len(records),
+            "n_failed": failures,
+            "decoding": {"do_sample": False, "num_beams": args.num_beams,
+                         "max_new_tokens": args.max_new_tokens},
+            "describe_prompt": args.describe_prompt,
+            "judge": args.judge,
+        },
+        "metrics": metrics,
+        "records": records,
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    with open(args.out, "w") as f:
+        json.dump(out, f, indent=2, ensure_ascii=False)
+
+    print(f"\n[eval] 완료 — {args.out}")
+    for task, scores in metrics.items():
+        print(f"  {task}: " + "  ".join(f"{k}={v:.4f}" for k, v in scores.items()))
+    return 0
+
+
+def run_compare(paths):
+    """여러 arm 의 결과를 나란히 놓는다. 비교 불가 조건은 경고한다."""
+    loaded = []
+    for p in sorted(paths):
+        with open(p) as f:
+            loaded.append((os.path.basename(p), json.load(f)))
+    if not loaded:
+        print("비교할 결과 파일이 없습니다.")
+        return 1
+
+    base = loaded[0][1]["config"]
+    for name, d in loaded[1:]:
+        for key in ("anno", "decoding", "describe_prompt"):
+            if d["config"][key] != base[key]:
+                print(f"  ⚠️ {name}: '{key}' 가 기준과 다릅니다 — 직접 비교 불가")
+
+    keys = ["BLEU-1", "BLEU-2", "BLEU-3", "BLEU-4"]
+    print(f"\n{'arm':<28}{'n':>6}" + "".join(f"{k:>10}" for k in keys))
+    for name, d in loaded:
+        m = d["metrics"].get("description", {})
+        print(f"{name:<28}{d['config']['n_clips']:>6}" +
+              "".join(f"{m.get(k, float('nan')):>10.4f}" for k in keys))
+    print("\n주의: 단일 실행 점추정입니다. seed 반복 없이 arm 간 소수점 차이를 "
+          "주장하지 마십시오.")
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cfg", default="configs/eval_configs/eval.yaml")
+    ap.add_argument("--ckpt", default=None, help="arm 별 체크포인트 (config 값을 덮어씀)")
+    ap.add_argument("--anno", default=DEFAULT_ANNO)
+    ap.add_argument("--videos-dir", default=DEFAULT_VIDEOS)
+    ap.add_argument("--out", default="experiments/out/eval.json")
+    ap.add_argument("--limit", type=int, default=0, help="0이면 전체")
+    ap.add_argument("--gpu-id", type=int, default=0)
+    ap.add_argument("--num-beams", type=int, default=1)
+    ap.add_argument("--max-new-tokens", type=int, default=300)
+    ap.add_argument("--describe-prompt",
+                    default="Describe the video and identify whether anything anomalous "
+                            "happens, including where it happens and why it is dangerous.")
+    ap.add_argument("--judge", default=None,
+                    help="GPT-guided 판정자 지정 (미지정 시 BLEU 만 계산)")
+    ap.add_argument("--compare", nargs="*", default=None,
+                    help="결과 JSON 들을 비교 출력하고 종료")
+    args = ap.parse_args()
+
+    if args.compare is not None:
+        paths = args.compare or glob.glob("experiments/out/eval_*.json")
+        return run_compare(paths)
+    return run_eval(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

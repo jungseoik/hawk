@@ -16,7 +16,9 @@ model:
   llama_model: "/home/work/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
 
   # Hawk Weight
-  ckpt: '/remote-home/share/jiaqitang/Hawk_Ours/hawk/output/hawk_finetune/20250221045/checkpoint_10.pth' 
+  # 기본값은 stage-1 최종 체크포인트. 평가 대상은 보통 stage-2 또는 어블레이션 arm 의
+  # 체크포인트이므로, scripts/evaluate.py --ckpt 로 덮어쓰는 것을 전제로 한다.
+  ckpt: '/home/work/seoik/runs/core/main/checkpoint_106.pth'
 
   equip_audio_branch: False
 
