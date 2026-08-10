@@ -55,6 +55,40 @@ def bsi(resp_safe: str, resp_danger: str, embed_fn=None) -> float:
     return 1.0 - jac
 
 
+def corrected_bsi(resp_safe, resp_danger, resp_safe_alt, resp_repeat=None, embed_fn=None):
+    """귀무 조건을 감산한 BSI.
+
+    왜 필요한가. 원래의 `bsi()` 는 배경을 바꿨을 때 응답이 얼마나 달라지는가만 잰다.
+    그런데 응답이 달라지는 이유는 두 가지이고, 원 지표는 둘을 구분하지 못한다.
+
+      (a) 모델이 배경의 **의미**를 인과적으로 사용한다  ← 논문이 주장하려는 것
+      (b) 모델이 **어떤** 픽셀 변화에도 불안정하다        ← 무해한 대안 설명
+
+    같은 데이터가 두 해석에 동일하게 부합하므로, 귀무 조건 없이 얻은 BSI 는 인과 주장을
+    지지하지 않는다. `ΔBSI`(정적 스트림 유/무의 차분)도 이를 상쇄하지 못한다 — 두 모델이
+    합성 아티팩트에 서로 다르게 민감할 수 있고, 그 차이가 그대로 ΔBSI 로 나타난다.
+
+    따라서 세 값을 함께 재고 감산한다.
+
+      resp_safe / resp_danger    안전 배경 vs 위험 배경          → 신호
+      resp_safe_alt              **의미가 동등한 다른 안전 배경**  → 귀무 (BSI ≈ 0 기대)
+      resp_repeat                동일 입력 재생성 (선택)          → 생성 자체의 변동
+
+    반환하는 `corrected` 가 보고 대상이며, 이것이 0 이하면 "배경 의미에 반응했다"고 말할 수
+    없다. `null` 이 크면 지표가 의미가 아니라 섭동 크기를 재고 있다는 뜻이므로, 그 경우
+    합성 품질(경계 아티팩트·조도 불일치)을 먼저 점검해야 한다.
+    """
+    signal = bsi(resp_safe, resp_danger, embed_fn)
+    null = bsi(resp_safe, resp_safe_alt, embed_fn)
+    out = {"signal": signal, "null": null, "corrected": signal - null}
+    if resp_repeat is not None:
+        # 동일 입력을 두 번 생성했을 때의 차이. greedy 디코딩이면 0 이어야 한다.
+        # 0 이 아니면 표본 추출이 켜져 있다는 뜻이고, 그 변동은 BSI 에 양의 편향으로
+        # 들어간다 (scripts/evaluate.py 는 do_sample=False 로 고정한다).
+        out["self_consistency"] = bsi(resp_safe, resp_repeat, embed_fn)
+    return out
+
+
 def run_model(frames):  # pragma: no cover - hook
     """Wire to the trained CERBERUS model later (returns a description string)."""
     raise NotImplementedError("Wire to checkpoint via app.py inference when available.")
