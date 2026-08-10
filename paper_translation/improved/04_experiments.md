@@ -25,8 +25,15 @@ CVD 원리는 일반 비디오-언어 이해에 적용 가능하나, 그 효용�
 |---|---|---|
 | Text-Level | BLEU-1 ~ BLEU-4 | 생성 텍스트와 정답 간 n-gram 중복도 |
 | GPT-Guided | Reasonability / Detail / Consistency | 논리성·구체성·일관성 (0–1) |
-| **Diagnostic (신규)** | **CDS** (Complementary Disentanglement Score) | 스트림 간 비중복성과 합집합 정보 보존의 결합 (Section 4.2, 수식 11–13) |
-| **Diagnostic (신규)** | **BSI** (Background Sensitivity Index) | 정적 맥락 활용의 인과적 민감도 (Section 4.2, 수식 14) |
+| **Scene-level (신규)** | **Scene-word Recall** | **정답 캡션의 장면 어휘를 생성문이 얼마나 재현하는가** — 본 연구 주장을 직접 측정 |
+| **Diagnostic (신규)** | **BSI** (Background Sensitivity Index) | 정적 맥락 활용의 인과적 민감도 (Section 4.2, 수식 14–15) |
+| Diagnostic | CDS (Complementary Disentanglement Score) | 스트림 간 비중복성 (Section 4.2). **한계는 Section 4.2·4.6 참조** |
+
+**장면 어휘 재현율을 주 지표로 두는 이유.** 본 연구의 주장은 "기존 모델이 놓치던 정적 장면 맥락을 우리 모델은 서술한다"이다. 그런데 BLEU는 문장 전체를 평가하므로 배경 서술의 개선이 나머지 내용에 희석되고, BSI는 배경에 *민감한가*를 잴 뿐 *정확한가*를 재지 않으며, `context_critical` 정확도는 판정의 정오만 본다. 즉 **주장을 정면으로 재는 지표가 표준 지표 안에 없다.**
+
+Scene-word Recall은 정답 캡션에서 장면 어휘(비-논항 명사 + 형용사)를 추출하고 — `L_BL`이 정적 스트림에게 생성하도록 가르친 바로 그 집합이며 학습과 동일한 추출기를 사용한다 — 생성문이 그중 몇 개를 재현했는지 센다. 남발을 막기 위해 precision을 함께 보고하고, 장면 어휘가 존재하는 클립 수(`n_ref`)를 표본 수로 공개한다.
+
+합성 검증에서 이 지표는 두 유형을 뚜렷이 변별하였다: 배경을 서술하는 응답 `recall 0.923`, 움직임만 서술하는 응답 `recall 0.077` (동일 정답 집합, 장면 어휘 13개).
 
 ### 베이스라인 (Baselines)
 

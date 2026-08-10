@@ -1,0 +1,203 @@
+# CERBERUS 실험 로드맵 — 무엇을, 왜, 어떤 순서로
+
+이 문서 하나만 읽으면 **다른 서버의 에이전트도 이어서 진행할 수 있도록** 쓴다.
+현황·근거·다음 명령·판단 기준을 한곳에 모은다.
+
+- 세션 복구 절차: `../../CLAUDE.md` (볼륨 루트) 또는 `session-recovery.md`
+- 학습 이력·설정 근거: `training-log.md`
+- 심사 지적과 대응: `review-2026-08-10-methodology.md`
+
+---
+
+## 0. 이 연구가 입증하려는 것
+
+> **HAWK는 정적 배경을 별도 학습 대상으로 두지 않는다. 배경 전용 스트림을 추가하고
+> 장면 언어로 감독하면, 배경 맥락이 중요한 이상에서 이해 성능이 향상된다.**
+
+증명해야 하는 것은 **세 단계**이며, 뒤로 갈수록 어렵다.
+
+| 단계 | 주장 | 반증되는 조건 |
+|---|---|---|
+| S1 | 배경 스트림을 추가하면 성능이 오른다 | `flow` ≈ `zero` |
+| S2 | 그 향상이 **용량이 아니라 배경 내용** 때문이다 | `flow` ≈ `random_mask` |
+| S3 | 그 향상이 **상보 분해** 때문이다 (단순 추가가 아니라) | `flow` ≈ `duplicate` |
+
+S1만 성립하고 S2가 깨지면 "브랜치를 늘리면 좋다"는 흔한 결과로 축소된다.
+S2까지 성립하고 S3가 깨지면 "배경 정보를 따로 주면 좋다"까지는 주장할 수 있으나
+"화소값 보존 상보 분할"(C1)의 고유성은 포기해야 한다.
+
+**설계 원칙**: 가설이 참이라면 드러나도록 최대한 유리한 조건을 만들되, 거짓일 경우에
+무엇을 보고할지도 미리 정해 둔다. 어느 쪽이 나오든 쓸 수 있는 논문이 되도록 한다.
+
+---
+
+## 1. 현재 진행 중 — ① 통제군 4-arm
+
+**목적**: S1·S2·S3를 한 번에 판정한다. 이 실험이 논문의 생사를 가른다.
+
+```bash
+cd $CERBERUS_ROOT/hawk
+bash scripts/run_ablation_arms.sh          # flow → random_mask → duplicate → zero
+```
+
+- arm당 40 epoch(=400k 샘플), 약 1.6일. 전체 약 6.4일
+- 네 arm은 **아키텍처·파라미터 수·시각 토큰 수가 동일**하고 정적 스트림의 *내용*만 다르다
+- 재개 가능: 끊긴 뒤 같은 명령을 다시 실행하면 `train_run.sh`가 arm별로 이어받는다
+- 진행 확인: `grep -c "Averaged stats" $CERBERUS_ROOT/runs/abl_<arm>/train.log`
+
+**주의 — 이 실험이 도는 동안 학습 경로 코드를 수정하지 말 것.** arm마다 다른 코드로
+학습되면 통제가 깨진다(실제로 한 번 발생해 재시작했다). 평가·문서·분석 코드는 무관하다.
+
+**끝나면 할 일**
+```bash
+for a in flow random_mask duplicate zero; do
+  $CERBERUS_PY scripts/evaluate.py --ckpt $CERBERUS_ROOT/runs/abl_$a/main/checkpoint_39.pth \
+      --out experiments/out/eval_abl_$a.json --judge gemini-2.5-flash
+done
+$CERBERUS_PY scripts/evaluate.py --compare
+```
+
+---
+
+## 2. 다음 순서 (① 완료 후)
+
+우선순위는 **"어떤 질문에 답하지 못하면 논문이 막히는가"** 기준이다.
+
+### ② 시드 3회 — 3.2일 · 최우선
+
+배경 스트림의 기대 이득은 이 벤치마크에서 소수점 둘째 자리 대역이다. 단일 실행
+점추정으로는 "런 간 노이즈와 구별되지 않는다"는 한 문장에 무너진다. 주요 2개 arm
+(`flow`, 가장 강한 통제군)에 시드 3개를 돌려 평균±표준편차와 부트스트랩 CI를 보고한다.
+
+```bash
+# seed 는 config 의 run.seed 를 --options 로 덮어쓴다
+for s in 43 44; do
+  bash scripts/train_run.sh configs/train_configs/ablation/stage2_flow.yaml abl_flow_s$s 0,1 2
+done
+```
+※ `run.seed` 오버라이드를 `train_run.sh`의 `OPTS`에 추가해야 한다(미구현).
+
+### ③ 5번째 arm — 고친 `L_dis` — 1.6일
+
+**답하는 질문**: "제대로 작동하는 분리 목적함수가 하류 성능을 바꾸는가."
+
+현재 `L_dis`는 퇴화 고정점에 있어 기울기가 0이다(§4 참조). 고쳐서 재실행하려면
+Stage-1부터 다시 해야 할 것 같지만, **`encoder_1`이 곁가지라 그럴 필요가 없다** —
+`projection.py`에서 `decoder_2`는 `encoder_0`의 출력을 받으므로, `encoder_1`만
+재초기화하면 LLM 경로가 손상되지 않는다.
+
+```
+1. L_dis 재정의: 반상관(cos→−1) → 탈상관(|cos|→0)
+   + 배치 중심화, 샘플별 코사인(.view(1,-1) 제거), 분산 하한(VICReg식 hinge)
+2. checkpoint_106 로드 후 encoder_1 만 재초기화
+3. Stage-2 40 epoch (다른 arm과 동일 예산)
+```
+
+**한계**: Stage-2는 400k 샘플이라 목적함수가 작용할 기회가 Stage-1(1.6M)보다 적다.
+"Stage-1부터 고쳐 학습했다면 어땠을지"는 답하지 못하며, 이는 한계로 명시한다.
+
+### ④ ego-motion 보정 arm — 1.6일
+
+DoTA(전체의 62%)에서 자기운동이 화면 전체를 동적으로 분류해 정적 스트림이 비는 문제
+(`mask_statistics.json`). 전역 호모그래피 추정 후 잔차 플로우로 마스크를 만든다.
+**성능 개선이자 방법론 기여**가 될 수 있다 — 배경을 더 잘 보게 만드는 방향이므로
+연구 주장과 같은 방향이다.
+
+### ⑤ Stage-1 재학습 — 2.8일 + Stage-2 6.3일
+
+③의 완전판. `L_dis`를 고친 상태로 Stage-1부터 1.6M 샘플을 다시 학습한다.
+③에서 유의한 효과가 보였을 때만 정당화된다. 2 GPU 기준 `max_epoch`을 107 → **133**
+으로 올려야 샘플 예산(1.6M)이 유지된다(`iters_per_epoch` 1500, batch 4, 2 GPU).
+
+### ⑥ 주 비교 full-budget run — 6.3일
+
+Table 1을 원본 공개 수치와 나란히 놓기 위해 `flow` 구성을 원본과 같은 1.6M 샘플
+(`max_epoch: 160`, batch 2, 2 GPU)로 한 번 돌린다. ①의 감축 예산 결과와는 별개다.
+
+---
+
+## 3. GPU 없이 병행할 것
+
+| 작업 | 상태 | 비고 |
+|---|---|---|
+| 장면 어휘 재현율 지표 | ⏳ | **연구 주장을 직접 재는 유일한 지표** — §5 참조 |
+| Background-critical 주석 600건 | ⏳ | 사람 2인 이상 필요. `bg_critical_benchmark/annotation_protocol.md` |
+| Route B 합성 프로브 + 귀무 조건 | ◐ | `corrected_bsi()` 구현됨, 실데이터 적용 미완 |
+| 참고문헌 [51]–[55] 원문 대조 | ⏳ | 기억으로 작성됨 — `improved/07_references.md`에 표시 |
+| Figure 1 teaser | ⏳ | 실제 프레임의 `x` / `M⊙x` / `(1−M)⊙x` 3장이면 충분 |
+
+---
+
+## 4. 확정된 사실 (되돌리지 말 것)
+
+측정·검증을 거친 것들이다. 다시 논의하기 전에 근거를 먼저 볼 것.
+
+**`L_dis`는 학습된 적이 없다.** `checkpoint_106` 실측:
+- `encoder_1.bias` 코사인 `+0.9988` / `−0.9993` (목표값에 정확히 도달)
+- 같은 모듈의 `decoder_2.bias`(이 손실이 안 닿는 대조군) `+0.027` / `+0.023`
+- `encoder_1.weight`는 초기화 대비 0.97~1.01배 — 입력 처리부는 안 움직였고
+  입력 무관 bias만 20~40배 팽창
+- `cos = ±1`은 코사인의 정류점 → 기울기 0 → 이후 106 epoch 동안 무기여
+- 결론: `t_4 = 0.1`과 `t_4 = 0`이 비트 단위로 동일하다. 어블레이션 불필요
+
+**CDS는 `L_dis`의 최적점에서 0이 된다.** linear CKA가 부호 불변이므로
+`z_b = −c·z_m`에서 Redundancy = 1 → CDS = 0. 즉 목적함수와 진단 지표가 서로
+반대를 가리킨다. 비중복성이 요구하는 것은 반상관(−1)이 아니라 탈상관(0)이다.
+
+**마스크 비율은 도메인 간 10배 이상 차이 난다** (전수 7,852 클립, τ=0.2):
+DoTA 0.449 / Ped2 0.160 / Ped1 0.159 / Avenue 0.147 / ShanghaiTech 0.067 /
+UCF-Crime 0.064 / UBnormal 0.039. 고정 카메라 도메인에서 정적 스트림은 프레임의
+84–96%를 보존하므로 외형 스트림과 입력이 크게 겹친다 → `duplicate` 통제군이 특히 중요.
+
+**Stage-2에는 `L_ML`·`L_BL`이 없다.** 세 스트림을 concat해 LLaMA를 1회 통과시키므로
+`loss_motion = loss_background = loss`이며(`video_llama.py:806`), 실효 목적은
+`1.2·L_VL + 0.1·L_sim + 0.1·L_dis`다. 따라서 `+L_BL` 어블레이션 행은 Stage-1
+재사전학습을 요구한다.
+
+**Stage-1에서 `L_BL`은 정상 작동했다.** 로그의 `motionloss 2.6672` vs
+`backgroundloss 2.2075`가 서로 다른 값이라는 것이 증거다. 연구 주장의 핵심 부품은
+붕괴하지 않았다.
+
+---
+
+## 5. 아직 없는 것 — 주장을 직접 재는 지표
+
+현재 지표는 연구 주장을 **간접적으로만** 잰다.
+
+- BLEU: 문장 전체. 배경 서술이 좋아져도 희석된다
+- BSI: 배경에 *민감한가*이지 *정확한가*가 아니다
+- `context_critical` 정확도: 맞았나 틀렸나. 배경 서술 품질은 아니다
+
+**장면 어휘 재현율(Scene-word Recall)** — 정답 캡션에서 뽑은 장면 어휘
+(`extract_background_entities_sentence`가 뽑는 바로 그 단어들, `L_BL`의 학습 목표)를
+모델 출력이 얼마나 맞히는가. 이것이 있어야 *"HAWK는 노면이 젖었다는 걸 말하지 못하는데
+우리는 말한다"* 를 숫자로 쓸 수 있다. GPU 불필요.
+
+---
+
+## 6. 결과별 대응 (미리 정해 둔다)
+
+| ① 결과 | 해석 | 논문 방향 |
+|---|---|---|
+| `flow` > `duplicate` > `random_mask` ≈ `zero` | S1·S2·S3 전부 성립 | 원안대로. 상보 분해가 핵심 기여 |
+| `flow` ≈ `duplicate` > `random_mask` ≈ `zero` | S1·S2 성립, S3 실패 | C1을 "배경 정보의 명시적 분리"로 축소. 분해의 *형태*는 주장하지 않음 |
+| `flow` ≈ `random_mask` | S2 실패 | 이득이 용량·정규화 효과. 구조 주장 철회, 음성 결과로 정직하게 보고 |
+| 전부 동점 | S1 실패 | 배경 스트림 자체가 무효. ④(ego-motion)로 마스크 품질을 먼저 개선해 재시도 |
+
+마지막 두 경우가 나와도 **버릴 실험이 아니다** — "브랜치 추가는 용량 효과였다"는 것도
+이 계보에서 보고할 가치가 있는 결과이며, 통제군을 갖춘 덕분에 그렇게 말할 수 있다.
+
+---
+
+## 7. 백업 규약
+
+큰 변경 후에는 양쪽 모두 밀어 다른 서버에서 재현 가능하게 한다.
+
+```bash
+# 코드·문서·figure
+git push https://<token>@github.com/jungseoik/hawk.git HEAD:main
+
+# 체크포인트·로그 (HF)
+$CERBERUS_PY scripts/upload_checkpoint.py --folder <name> --run-dir $CERBERUS_ROOT/runs/<run> --latest
+```
+토큰: `$CERBERUS_ROOT/.github_token`, `.hf_token`, `.gemini_token`(판정자).

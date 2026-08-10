@@ -76,6 +76,73 @@ Respond with JSON only, no prose:
 {{"reasonability": <float>, "detail": <float>, "consistency": <float>}}"""
 
 
+def scene_word_recall(references, hypotheses):
+    """장면 어휘 재현율 — 이 연구의 주장을 직접 재는 지표.
+
+    BLEU 는 문장 전체를 보므로 배경 서술이 좋아져도 다른 내용에 희석되고, BSI 는 배경에
+    *민감한가*를 잴 뿐 *정확한가*를 재지 않는다. 정작 이 연구가 주장하는 것은
+    **"기존 모델이 놓치던 정적 장면 맥락을 우리 모델은 말한다"** 이므로, 그것을 직접
+    재는 지표가 필요하다.
+
+    정답 캡션에서 장면 어휘(비-논항 명사 + 형용사 — `L_BL` 이 정적 스트림에게 생성하도록
+    가르친 바로 그 단어들)를 뽑고, 모델 출력이 그중 몇 개를 맞혔는지 센다. 추출기는 학습에
+    쓰인 것과 동일한 함수를 재사용해 감독 신호와 평가 기준이 어긋나지 않게 한다.
+
+    함께 보고하는 값:
+      recall     장면 어휘 중 맞힌 비율            ← 주 지표
+      precision  생성한 장면 어휘 중 정답에 있던 비율 (남발 방지)
+      n_ref      정답에 장면 어휘가 있던 클립 수    ← 표본 수 공개
+    """
+    from hawk.datasets.datasets.webvid_datasets import (
+        extract_background_entities_sentence,
+    )
+
+    hits = misses = spurious = 0
+    n_ref = 0
+    for ref, hyp in zip(references, hypotheses):
+        scene = extract_background_entities_sentence(ref)
+        # 추출 실패 시 원문을 그대로 돌려주는 fallback 이 있으므로 그 경우는 제외한다.
+        if not scene or scene.strip() == ref.strip():
+            continue
+        gold = {w.strip(".,;:!?").lower() for w in scene.split() if len(w) > 2}
+        if not gold:
+            continue
+        n_ref += 1
+        said = {w.strip(".,;:!?").lower() for w in hyp.split()}
+        hit = gold & said
+        hits += len(hit)
+        misses += len(gold - said)
+        # 모델이 말한 장면 어휘 중 정답에 없는 것 — 정답의 장면 어휘 어휘집 기준
+        spurious += len(said & _SCENE_VOCAB) - len(hit) if _SCENE_VOCAB else 0
+
+    if n_ref == 0:
+        return {"recall": float("nan"), "n_ref": 0}
+    recall = hits / (hits + misses)
+    out = {"recall": recall, "n_ref": n_ref, "n_gold_words": hits + misses}
+    if _SCENE_VOCAB:
+        denom = hits + max(spurious, 0)
+        out["precision"] = hits / denom if denom else float("nan")
+    return out
+
+
+# 정답 캡션 전체에서 모은 장면 어휘 집합. precision 계산에만 쓰이며, 비어 있으면
+# recall 만 보고한다(사전을 만들지 못하는 상황에서도 주 지표는 나온다).
+_SCENE_VOCAB: set = set()
+
+
+def build_scene_vocab(references):
+    """정답 캡션 모음에서 장면 어휘집을 만든다 (precision 계산용)."""
+    from hawk.datasets.datasets.webvid_datasets import (
+        extract_background_entities_sentence,
+    )
+    vocab = set()
+    for ref in references:
+        scene = extract_background_entities_sentence(ref)
+        if scene and scene.strip() != ref.strip():
+            vocab |= {w.strip(".,;:!?").lower() for w in scene.split() if len(w) > 2}
+    return vocab
+
+
 def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, verbose=True):
     """GPT-guided 3종을 외부 LLM 판정자로 매긴다.
 
@@ -252,11 +319,16 @@ def run_eval(args):
             rate = i / (time.time() - t0)
             print(f"  {i}/{len(samples)}  ({rate:.2f} clip/s, 실패 {failures})")
 
+    gts = [r["gt_description"] for r in records]
+    preds = [r["pred_description"] for r in records]
+
+    global _SCENE_VOCAB
+    _SCENE_VOCAB = build_scene_vocab(gts)
+
     metrics = {
-        "description": compute_bleu(
-            [r["gt_description"] for r in records],
-            [r["pred_description"] for r in records],
-        )
+        "description": compute_bleu(gts, preds),
+        # 연구 주장을 직접 재는 지표 — 배경 서술 능력. BLEU 와 별개로 보고한다.
+        "scene_word": scene_word_recall(gts, preds),
     }
     qa_records = [r for r in records if r["gt_answer"] and r["pred_answer"]]
     if qa_records:
