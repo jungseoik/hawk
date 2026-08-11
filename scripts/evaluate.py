@@ -76,7 +76,39 @@ Respond with JSON only, no prose:
 {{"reasonability": <float>, "detail": <float>, "consistency": <float>}}"""
 
 
-def scene_word_recall(references, hypotheses):
+# 평가 전용 장면 어휘 범주. 학습의 추출기(구문 역할 기반)와 **독립적으로** 정의한다.
+#
+# 왜 분리하는가. 학습은 `extract_background_entities_sentence`(의존 구문 역할이 주어·목적어가
+# 아닌 명사 + 형용사)로 정적 스트림의 감독 목표를 만든다. 평가가 같은 추출기를 쓰면, 그 집합을
+# 생성하도록 학습된 모델이 그 집합의 재현율에서 높은 점수를 받는 것이 당연해진다 — 이해의
+# 증거가 아니라 **학습 충실도의 증거**가 되어 순환한다.
+#
+# 그래서 평가는 "장면을 규정하는 조건"이라는 의미 범주를 명시적 어휘로 고정한다. 이 목록은
+# 결과를 보기 전에 확정했으며, 모델 출력이 아니라 이 연구가 주장하는 대상(노면 상태·기상·
+# 조명·장소 유형)에서 도출했다.
+SCENE_LEXICON = {
+    # 노면·표면 상태
+    "wet", "icy", "snowy", "slippery", "muddy", "dry", "flooded", "gravel", "pavement",
+    "asphalt", "sidewalk", "pothole", "curb", "surface", "road", "lane", "crosswalk",
+    # 기상·시간·조명
+    "rain", "rainy", "snow", "fog", "foggy", "storm", "stormy", "windy", "night",
+    "dark", "dim", "bright", "sunny", "cloudy", "daylight", "dusk", "shadow", "lit",
+    "illuminated", "lighting", "streetlight",
+    # 장소 유형
+    "highway", "freeway", "street", "intersection", "tunnel", "bridge", "parking",
+    "garage", "alley", "corridor", "hallway", "lobby", "store", "shop", "mall",
+    "station", "platform", "stairs", "staircase", "escalator", "elevator", "entrance",
+    "campus", "park", "playground", "field", "yard", "warehouse", "factory", "office",
+    "room", "kitchen", "bank", "market", "restaurant", "school", "hospital",
+    # 장면 구조물
+    "fence", "wall", "barrier", "railing", "guardrail", "pole", "sign", "signal",
+    "traffic", "building", "roof", "window", "door", "gate", "bench", "tree",
+    # 밀집도·상태
+    "crowded", "empty", "busy", "deserted", "narrow", "wide", "steep",
+}
+
+
+def scene_word_recall(references, hypotheses, lexicon=None):
     """장면 어휘 재현율 — 이 연구의 주장을 직접 재는 지표.
 
     BLEU 는 문장 전체를 보므로 배경 서술이 좋아져도 다른 내용에 희석되고, BSI 는 배경에
@@ -84,63 +116,50 @@ def scene_word_recall(references, hypotheses):
     **"기존 모델이 놓치던 정적 장면 맥락을 우리 모델은 말한다"** 이므로, 그것을 직접
     재는 지표가 필요하다.
 
-    정답 캡션에서 장면 어휘(비-논항 명사 + 형용사 — `L_BL` 이 정적 스트림에게 생성하도록
-    가르친 바로 그 단어들)를 뽑고, 모델 출력이 그중 몇 개를 맞혔는지 센다. 추출기는 학습에
-    쓰인 것과 동일한 함수를 재사용해 감독 신호와 평가 기준이 어긋나지 않게 한다.
+    정답 캡션에 나타난 장면 어휘를 **고정 어휘집**(`SCENE_LEXICON`)으로 식별하고, 모델
+    출력이 그중 몇 개를 재현했는지 센다. 어휘집은 학습의 추출기와 독립이며, 그 이유는
+    `SCENE_LEXICON` 주석에 적었다.
 
     함께 보고하는 값:
-      recall     장면 어휘 중 맞힌 비율            ← 주 지표
-      precision  생성한 장면 어휘 중 정답에 있던 비율 (남발 방지)
-      n_ref      정답에 장면 어휘가 있던 클립 수    ← 표본 수 공개
+      recall     정답의 장면 어휘 중 맞힌 비율        ← 주 지표
+      precision  말한 장면 어휘 중 정답에 있던 비율    ← 남발 방지
+      n_ref      정답에 장면 어휘가 있던 클립 수      ← 표본 수 공개
+
+    precision 이 필요한 이유는 합성 검증에서 드러난다. 장면 어휘를 무차별로 나열하는 응답은
+    recall 0.727 을 얻지만 precision 0.381 로 걸러진다(정확히 서술한 응답은 1.000 / 1.000).
+    recall 만 보고하면 "장면 단어를 많이 말하는" 전략이 이긴다.
     """
-    from hawk.datasets.datasets.webvid_datasets import (
-        extract_background_entities_sentence,
-    )
+    lex = lexicon if lexicon is not None else SCENE_LEXICON
+
+    def scene_terms(text):
+        toks = {w.strip(".,;:!?\"'()").lower() for w in text.split()}
+        return toks & lex
 
     hits = misses = spurious = 0
     n_ref = 0
     for ref, hyp in zip(references, hypotheses):
-        scene = extract_background_entities_sentence(ref)
-        # 추출 실패 시 원문을 그대로 돌려주는 fallback 이 있으므로 그 경우는 제외한다.
-        if not scene or scene.strip() == ref.strip():
-            continue
-        gold = {w.strip(".,;:!?").lower() for w in scene.split() if len(w) > 2}
-        if not gold:
+        gold = scene_terms(ref)
+        if not gold:              # 정답에 장면 어휘가 없으면 잴 것이 없다
             continue
         n_ref += 1
-        said = {w.strip(".,;:!?").lower() for w in hyp.split()}
+        said = scene_terms(hyp)
         hit = gold & said
         hits += len(hit)
         misses += len(gold - said)
-        # 모델이 말한 장면 어휘 중 정답에 없는 것 — 정답의 장면 어휘 어휘집 기준
-        spurious += len(said & _SCENE_VOCAB) - len(hit) if _SCENE_VOCAB else 0
+        spurious += len(said - gold)   # 정답에 없는 장면 어휘를 말한 것
 
     if n_ref == 0:
         return {"recall": float("nan"), "n_ref": 0}
-    recall = hits / (hits + misses)
-    out = {"recall": recall, "n_ref": n_ref, "n_gold_words": hits + misses}
-    if _SCENE_VOCAB:
-        denom = hits + max(spurious, 0)
-        out["precision"] = hits / denom if denom else float("nan")
-    return out
-
-
-# 정답 캡션 전체에서 모은 장면 어휘 집합. precision 계산에만 쓰이며, 비어 있으면
-# recall 만 보고한다(사전을 만들지 못하는 상황에서도 주 지표는 나온다).
-_SCENE_VOCAB: set = set()
-
-
-def build_scene_vocab(references):
-    """정답 캡션 모음에서 장면 어휘집을 만든다 (precision 계산용)."""
-    from hawk.datasets.datasets.webvid_datasets import (
-        extract_background_entities_sentence,
-    )
-    vocab = set()
-    for ref in references:
-        scene = extract_background_entities_sentence(ref)
-        if scene and scene.strip() != ref.strip():
-            vocab |= {w.strip(".,;:!?").lower() for w in scene.split() if len(w) > 2}
-    return vocab
+    denom_p = hits + spurious
+    return {
+        "recall": hits / (hits + misses),
+        "precision": hits / denom_p if denom_p else float("nan"),
+        "n_ref": n_ref,
+        "n_gold_words": hits + misses,
+        "lexicon_size": len(lex),
+        # 학습 추출기와 독립임을 결과 파일에 남긴다 — 순환성 지적에 대한 답이다.
+        "extractor": "fixed scene lexicon (independent of the L_BL training extractor)",
+    }
 
 
 def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, verbose=True):
@@ -321,9 +340,6 @@ def run_eval(args):
 
     gts = [r["gt_description"] for r in records]
     preds = [r["pred_description"] for r in records]
-
-    global _SCENE_VOCAB
-    _SCENE_VOCAB = build_scene_vocab(gts)
 
     metrics = {
         "description": compute_bleu(gts, preds),
