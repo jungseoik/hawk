@@ -29,6 +29,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -40,6 +41,32 @@ DEFAULT_VIDEOS = f"{ROOT}/hawk_anomaly/Videos"
 # ---------------------------------------------------------------------------
 # 지표
 # ---------------------------------------------------------------------------
+# 정답 설명 중 일부는 서술이 아니라 **거부 응답**이다 — "As an AI developed by OpenAI,
+# I cannot...". 원본 데이터셋의 캡션이 LLM 으로 생성되면서 섞여 들어간 것으로, UCF-Crime
+# 에서 200/1854 = 10.8% 를 차지한다(다른 데이터셋에는 없다).
+#
+# 이런 클립을 평가에 두면 생성문을 거부문과 대조하게 되어 BLEU 가 의미를 잃고, 장면 어휘
+# 재현율도 정답 쪽에 잴 어휘가 없어 표본에서 빠진다. 판정자 기반 지표는 더 나쁘다 — 거부문을
+# 기준으로 "합리성"을 매기게 된다. 따라서 평가에서 제외하고 제외 건수를 결과에 기록한다.
+#
+# 학습 데이터는 건드리지 않는다. 원본과 동일한 데이터로 학습한다는 통제가 이 논문의 비교
+# 논리이므로, 평가 시점에만 걸러낸다.
+REFUSAL_PAT = re.compile(
+    r"(as an ai|i am unable|i cannot|without having access|i don't have access|"
+    r"unable to (view|provide|analyz)|developed by openai|no capability to view|"
+    r"i'm sorry|cannot provide)", re.I)
+
+
+def is_refusal(text):
+    return bool(text) and bool(REFUSAL_PAT.search(text))
+
+
+def filter_refusals(records, field_gt):
+    """거부 응답을 정답으로 가진 레코드를 걸러내고 (남은 것, 제외 수) 를 돌려준다."""
+    keep = [r for r in records if not is_refusal(r.get(field_gt))]
+    return keep, len(records) - len(keep)
+
+
 def compute_bleu(references, hypotheses):
     """BLEU-1..4. 캡셔닝 논문 표준 구현(pycocoevalcap)을 쓴다.
 

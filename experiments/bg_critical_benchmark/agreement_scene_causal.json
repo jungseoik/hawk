@@ -7,8 +7,6 @@
   "kappa_causal_vs_rest": 0.866,
   "observed_agreement_4class": 0.838,
   "observed_agreement_binary": 0.938,
-  "llm_causal_precision": 0.964,
-  "llm_causal_recall": 0.871,
   "confusion_llm_rows_human_cols": {
     "incidental": {
       "incidental": 31,
@@ -44,5 +42,24 @@
     "no_scene 범주는 6건 전부 사람이 뒤집었다(0% 정확). 471건 중 46건이 이 라벨이며 재판정이 필요하다.",
     "no_scene 6건 중 1건이 실제 causal이었으므로, 471건 전체에서 약 8건의 causal이 추가로 존재할 것으로 추정된다.",
     "normal은 9/9 완전 일치, causal은 28건 중 27건 정확."
-  ]
+  ],
+  "correction": "이전 판의 llm_causal_precision/recall 과 'no_scene 정확도 0%' 진술을 철회한다. 두 값 모두 사람 라벨을 정답으로 놓고 계산한 것인데, 이 과제에 정답 라벨은 존재하지 않는다. 불일치 6건을 원문 대조한 결과 최소 2건은 사람 쪽이 틀렸다 — 정적 장면 조건이 전혀 없는 설명을 causal 로, 이상이 명시된 설명을 normal 로 판정하였다. κ 는 두 판정자의 일치도이며 어느 쪽의 정확도도 아니다.",
+  "disagreement_audit": {
+    "n_reviewed": 6,
+    "llm_appears_correct": 2,
+    "human_appears_correct": 1,
+    "borderline": 2,
+    "unlabelable_reference": 1,
+    "note": "unlabelable 1건은 정답 설명 자체가 LLM 거부 응답이어서 어떤 라벨도 성립하지 않는다."
+  },
+  "reference_quality": {
+    "refusal_descriptions": {
+      "UCF_Crime": "200/1854 = 10.8%",
+      "overall_train": "183/7066 = 2.6%",
+      "overall_test": "17/786 = 2.2%",
+      "heldout": "12/471 = 2.5%",
+      "val": "5/315 = 1.6%"
+    },
+    "note": "정답 설명 일부가 'As an AI developed by OpenAI, I cannot...' 형태의 거부 응답이다. 평가에서 제외해야 하며, 학습 데이터는 원본 HAWK 와의 통제를 유지하기 위해 건드리지 않는다."
+  }
 }
