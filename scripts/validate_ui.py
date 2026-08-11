@@ -54,7 +54,7 @@ LABELS = ["incidental", "causal", "no_scene", "normal"]
 N_FRAMES = 4
 
 _lock = threading.Lock()
-_state = {"items": [], "ko": {}, "llm": {}, "labels": {}, "out": OUT, "reveal": True}
+_state = {"items": [], "ko": {}, "llm": {}, "labels": {}, "out": OUT, "mode": "audit"}
 
 
 def _frames(video_path, n=N_FRAMES):
@@ -94,9 +94,12 @@ def _payload(idx):
         "ko": _state["ko"].get(vid, "(번역 없음)"),
         "frames": _frames(vid),
         "prev": _state["labels"].get(it["clip_id"], {}).get("label"),
-        # LLM 판정은 **여기 싣지 않는다.** 화면에 감추더라도 응답에 들어 있으면
-        # 브라우저에 이미 도착한 것이고, 블라인드는 표시 여부가 아니라 정보 도달
-        # 여부로 정의된다. 판정을 POST 한 뒤 그 응답으로만 내려보낸다.
+        "mode": _state["mode"],
+        # blind 모드에서는 LLM 판정을 여기 싣지 않는다. 화면에 감추더라도 응답에 들어
+        # 있으면 브라우저에 이미 도착한 것이고, 블라인드는 표시 여부가 아니라 정보 도달
+        # 여부로 정의된다. audit 모드에서는 의도적으로 미리 보여준다 — 목적이 독립
+        # 판정이 아니라 LLM 라벨의 검수이기 때문이다(κ는 이 모드에서 유효하지 않다).
+        "llm": _state["llm"].get(it["clip_id"]) if _state["mode"] == "audit" else None,
     }
 
 
@@ -144,6 +147,9 @@ PAGE = """<!doctype html><meta charset=utf-8><title>장면-인과 판정 검증<
  .agree{color:var(--d);font-weight:600} .disagree{color:var(--b);font-weight:600}
  .help{color:var(--dim);font-size:12.5px;margin-top:18px;line-height:1.9}
  .hide{display:none}
+ .hint{margin-top:14px;padding:12px 16px;border-radius:8px;background:#1c1a16;
+       border:1px solid #3a3222;color:#d8cdb4;font-size:14px}
+ .hint b{color:#f0c674}
 </style>
 <div class=wrap>
  <div class=bar>
@@ -170,9 +176,11 @@ PAGE = """<!doctype html><meta charset=utf-8><title>장면-인과 판정 검증<
  </div>
 
  <div class="after hide" id=after></div>
+ <div class="hint hide" id=hint></div>
 
  <div class=help>
-   <b>←</b> 이전 &nbsp;·&nbsp; <b>s</b> 건너뛰기 &nbsp;·&nbsp; <b>f</b> 프레임 접기/펼치기<br>
+   <b>1~4</b> 판정 &nbsp;·&nbsp; <b>Enter</b> 다음 &nbsp;·&nbsp; <b>←</b> 이전 &nbsp;·&nbsp;
+   <b>f</b> 프레임 접기/펼치기<br>
    판정은 <b>설명 텍스트</b> 기준입니다. 프레임은 애매할 때만 참고하세요 —
    설명에 없는 조건을 영상에서 읽어내 판정하면 기준이 흔들립니다.
  </div>
@@ -199,6 +207,14 @@ function render(){
   $('after').classList.add('hide');
   if(D.prev){ $('q').innerHTML = `이 설명에서 <b>정적 장면 조건</b>이 원인인가요? <span style="color:#9aa0a6;font-size:14px">(이전 응답: ${KO[D.prev]})</span>`; }
   else { $('q').innerHTML = '이 설명에서 <b>정적 장면 조건</b>이 원인인가요, 배경일 뿐인가요?'; }
+  // audit 모드: LLM 판정을 판정 전에 보여준다. 검수가 목적이므로 의도된 노출이며,
+  // 이 모드의 라벨로 계산한 κ 는 독립 일치도가 아니다(서버가 mode 를 함께 기록한다).
+  if(D.mode==='audit' && D.llm){
+    $('hint').innerHTML = `<b>LLM 판정: ${KO[D.llm.label]||D.llm.label}</b>` +
+      (D.llm.reason? `<div style="margin-top:5px;font-size:13px;color:#b0a68f">${D.llm.reason}</div>`:'') +
+      `<div style="margin-top:6px;font-size:12.5px;color:#8a8270">동의하면 같은 번호를, 다르면 맞는 번호를 누르세요.</div>`;
+    $('hint').classList.remove('hide');
+  } else { $('hint').classList.add('hide'); }
 }
 async function pick(k){
   if(answered) return;
@@ -207,7 +223,7 @@ async function pick(k){
   const r = await fetch('/label',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({clip_id:D.clip_id, label:L[k], seconds:secs})});
   const res = await r.json();
-  $('opts').classList.add('hide');
+  $('opts').classList.add('hide'); $('hint').classList.add('hide');
   // LLM 판정은 여기서 처음 노출된다 — 답한 뒤라 동조가 생기지 않는다.
   let html = `<b>기록됨: ${KO[L[k]]}</b>`;
   if(res.llm){
@@ -216,17 +232,25 @@ async function pick(k){
             (same? '<span class=agree>일치</span>' : '<span class=disagree>불일치</span>');
     if(res.llm.reason) html += `<div style="color:#9aa0a6;font-size:13px;margin-top:6px">LLM 근거: ${res.llm.reason}</div>`;
   }
-  html += `<div style="color:#9aa0a6;font-size:13px;margin-top:8px">아무 키나 누르면 다음</div>`;
+  html += `<div style="color:#9aa0a6;font-size:13px;margin-top:8px"><b>Enter</b> 또는 아무 키나 누르면 다음</div>`;
   $('after').innerHTML = html; $('after').classList.remove('hide');
 }
 document.onkeydown = e=>{
   const k = e.key.toLowerCase();
   if(k==='f'){ showFrames=!showFrames; render(); return; }
-  if(answered){ load(D.idx+1); return; }
+  // 답한 뒤에는 Enter/Space/아무 키나 다음으로. 목록 끝이면 멈춘다.
+  if(answered){ e.preventDefault(); if(D.idx+1 < D.total) load(D.idx+1); else finish(); return; }
   if(k==='arrowleft'){ load(Math.max(D.idx-1,0)); return; }
-  if(k==='s'){ load(D.idx+1); return; }
+  if(k==='arrowright'||k==='enter'||k===' '||k==='s'){ e.preventDefault(); load(Math.min(D.idx+1, D.total-1)); return; }
   if(['1','2','3','4'].includes(k)) pick(parseInt(k)-1);
 };
+function finish(){
+  $('opts').classList.add('hide'); $('hint').classList.add('hide');
+  $('q').textContent = '마지막 항목입니다.';
+  $('after').innerHTML = `<b>완료 ${D.done} / ${D.total}</b>
+    <div style="color:#9aa0a6;font-size:13px;margin-top:6px">← 로 되돌아가 수정할 수 있습니다.</div>`;
+  $('after').classList.remove('hide');
+}
 load(0);
 </script>"""
 
@@ -268,10 +292,13 @@ class H(BaseHTTPRequestHandler):
                 "label": req["label"],
                 "annotator": _state["annotator"],
                 "seconds_spent": round(req.get("seconds", 0), 1),
+                # blind = LLM 판정을 보지 않고 독립 판정 (κ 유효)
+                # audit = LLM 판정을 보고 검수 (κ 무효, 라벨 품질은 더 높음)
+                "mode": _state["mode"],
             }
         _save()
         return self._json({"ok": True,
-                           "llm": _state["llm"].get(cid) if _state["reveal"] else None})
+                           "llm": _state["llm"].get(cid)})
 
 
 def main():
@@ -284,8 +311,10 @@ def main():
                     help="두 번째 주석자는 반드시 다른 값을 주십시오(예: human_2). "
                          "같은 값이면 기존 라벨을 덮어씁니다.")
     ap.add_argument("--port", type=int, default=7861)
-    ap.add_argument("--no-reveal", action="store_true",
-                    help="답한 뒤에도 LLM 판정을 보여주지 않는다")
+    ap.add_argument("--mode", choices=("audit", "blind"), default="audit",
+                    help="audit(기본): LLM 판정을 **먼저** 보여주고 검수한다. 라벨 품질이 "
+                         "높아지지만 독립 판정이 아니므로 Cohen's κ 는 유효하지 않다. "
+                         "blind: 답한 뒤에만 보여준다. κ 계산이 필요하면 이쪽.")
     args = ap.parse_args()
 
     with open(args.sample) as f:
@@ -303,11 +332,14 @@ def main():
         print(f"기존 라벨 {len(_state['labels'])}건 이어서 진행")
 
     _state["out"] = args.out
-    _state["reveal"] = not args.no_reveal
+    _state["mode"] = args.mode
     _state["annotator"] = args.annotator
 
     print(f"표본 {len(_state['items'])}건 · 번역 {len(_state['ko'])}건 · "
-          f"LLM 판정 {len(_state['llm'])}건 · 주석자 {args.annotator}")
+          f"LLM 판정 {len(_state['llm'])}건 · 주석자 {args.annotator} · 모드 {args.mode}")
+    if args.mode == "audit":
+        print("  ⚠ audit 모드: LLM 판정을 먼저 보여줍니다. 라벨은 '검수된 라벨'이 되며,")
+        print("    독립 판정이 아니므로 이 라벨로 계산한 κ 는 일치도가 아니라 동조율입니다.")
     print(f"→ http://localhost:{args.port}")
     print(f"   기록: {args.out}")
     HTTPServer(("0.0.0.0", args.port), H).serve_forever()
