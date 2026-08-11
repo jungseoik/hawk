@@ -1019,9 +1019,64 @@ class VideoLLAMA(Blip2Base):
             print("Load first Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
-        ckpt_path_2 = cfg.get("ckpt_2", "")  
+        ckpt_path_2 = cfg.get("ckpt_2", "")
         if ckpt_path_2:
             print("Load second Checkpoint: {}".format(ckpt_path_2))
             ckpt = torch.load(ckpt_path_2, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
+
+        if cfg.get("static_reinit", False):
+            model.reinit_static_branch()
+
         return model
+
+    # 정적 브랜치의 **학습 가능한** 부분만 사전학습 가중치를 버리고 초기화 상태로 되돌린다.
+    #
+    # 왜 필요한가. 절제 arm 네 개는 모두 같은 Stage-1 체크포인트에서 분기하고, 그
+    # 체크포인트는 정적 스트림에 상보 배경 `(1−M)⊙x`를 넣고 `L_BL` 장면 언어 감독으로
+    # 학습되었다. 따라서 Stage-2에서 정적 입력을 `flow`로 두는 arm만 사전학습 분포와
+    # 입력이 일치하고, 나머지(`duplicate`·`random_mask`·`zero`)는 분포 외 입력에 적응해야
+    # 한다. 그 상태에서 `flow`가 이기면 그 우위는 "배경 내용"이 아니라 "사전학습 입력
+    # 일치"로도 설명되므로, 내용에 대한 인과 주장이 성립하지 않는다.
+    #
+    # 이 함수는 그 교란을 *제거*하는 것이 아니라 *크기를 재기* 위한 것이다. 입력은 `flow`로
+    # 두고 정적 브랜치만 초기화한 조건(`flow_reinit`)을 함께 돌리면, `flow − flow_reinit`이
+    # 사전학습 입력 일치가 주는 이점의 상한이 된다. 그 값이 작으면 네 arm 비교를 그대로
+    # 해석할 수 있고, 크면 그 크기를 명시해 보고해야 한다.
+    #
+    # 동결된 모듈(EVA-ViT, Q-Former)은 건드리지 않는다. 세 스트림이 같은 사전학습
+    # 백본을 공유해야 하고, 애초에 학습되지 않으므로 교란의 원인도 아니다.
+    def reinit_static_branch(self):
+        import torch.nn as nn
+
+        targets = [
+            "video_Qformer_background",
+            "video_frame_position_embedding_background",
+            "llama_proj_background_0",
+            "llama_proj_background_last",
+            "ln_vision_background",
+        ]
+        n_reset = 0
+        for name in targets:
+            mod = getattr(self, name, None)
+            if mod is None:
+                continue
+            for m in mod.modules():
+                if hasattr(m, "reset_parameters"):
+                    m.reset_parameters()
+                    n_reset += 1
+
+        # 쿼리 토큰은 모듈이 아닌 nn.Parameter라서 reset_parameters()가 없다.
+        # `init_video_Qformer`와 **같은 분포**로 되돌린다 — 값을 하드코딩하면 설정이
+        # 바뀔 때 조용히 어긋나므로 config에서 읽는다.
+        # `query_tokens_background`(Q-Former 쪽)는 동결 파라미터이므로 건드리지 않는다.
+        t = getattr(self, "video_query_tokens_background", None)
+        if isinstance(t, nn.Parameter):
+            t.data.normal_(mean=0.0, std=self.Qformer.config.initializer_range)
+            n_reset += 1
+
+        print(
+            f"[static_reinit] 정적 브랜치의 학습 가능 부분을 초기화했습니다 "
+            f"({n_reset}개 모듈/파라미터). 동결 모듈(ViT·Q-Former)은 유지됩니다."
+        )
+        return n_reset
