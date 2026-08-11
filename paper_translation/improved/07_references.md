@@ -42,6 +42,17 @@ on Machine Learning (ICML) (2021)
 Regularization for Self-Supervised Learning. In: International Conference on
 Learning Representations (ICLR) (2022)
 
+[56] Choi, J., Gao, C., Messou, J.C.E., Huang, J.-B.: Why Can't I Dance in the Mall?
+Learning to Mitigate Scene Bias in Action Recognition. In: Advances in Neural
+Information Processing Systems (NeurIPS) (2019)
+
+[57] Li, Y., Li, Y., Vasconcelos, N.: RESOUND: Towards Action Recognition Without
+Representation Bias. In: European Conference on Computer Vision (ECCV) (2018)
+
+> [56]–[57]은 Section 2.4의 **장면 편향(scene bias)** 대비에 인용된다. 이 계열은 배경
+> 의존을 억제 대상으로 보고, 본 연구는 회수 대상으로 본다 — 두 입장이 과제(분류 vs 설명)에
+> 따라 갈린다는 것이 본 연구의 위치 진술이다. **투고 전 원문 대조 필요.**
+
 ---
 
 ## 검증 필요 (투고 전 필수)
