@@ -223,3 +223,49 @@ total = 1.2 x LM손실 + 0.1 x middleloss + 0.1 x middleloss_bg
   **stage1 체크포인트와 stage2 체크포인트 양쪽에서 뽑아야** 분리도가 finetune으로 어떻게 변했는지
   비교할 수 있다.
 - Table-1용 VAD 정량 수치 (`scripts/run_eval.sh`, test split은 `all_videos_test.local.json`)
+
+---
+
+## NaN epoch 평균의 정체 (2026-08-12, 실측)
+
+`abl_flow` arm의 로그에서 `Averaged stats`의 `totalloss`가 28 epoch 중 **9회 `nan`** 으로
+찍혔고, 26–28에서 3연속으로 나타났다. 학습 실패로 읽힐 수 있는 형태이므로 원인을 확정했다.
+
+**실측.** 출력된 iteration 7,032개 중 NaN은 **1개**(0.014%)다. epoch 평균은 2,500 iteration의
+평균이므로 **NaN 하나가 섞이면 평균 전체가 NaN**이 된다. 즉 로그의 `nan`은 "이 epoch이
+실패했다"가 아니라 "이 epoch에 NaN iteration이 **적어도 하나** 있었다"는 뜻이다.
+
+실제 발생률은 epoch당 약 0.4회다. 그러면 `P(epoch에 NaN ≥ 1) = 9/28 = 0.32`이고,
+3연속이 나타날 확률은 28 epoch 구간에서 약 60%다. **3연속은 악화의 증거가 아니라 이
+발생률에서 예상되는 사건이다.**
+
+**가중치 확인.** `checkpoint_27.pth`의 학습 파라미터 231개 전부 NaN/Inf 없음. AMP GradScaler가
+NaN 손실에서 옵티마이저 스텝을 건너뛰므로 가중치가 오염되지 않는다. 정상 epoch의 loss는
+단조 하강한다(1.537 → 0.983).
+
+**감시 기준 교체.** "연속 3 epoch NaN"은 이 발생률에서 우연과 악화를 구별하지 못하므로 폐기한다.
+
+| 폐기 | 대체 |
+|---|---|
+| 연속 3 epoch NaN | **출력 iteration의 NaN 비율 > 1%** (현재 0.014%) |
+| | **체크포인트에 NaN/Inf 파라미터** (현재 없음) |
+| | **정상 epoch loss가 3회 연속 상승** (현재 단조 하강) |
+
+**논문 표기.** arm별 NaN epoch 수를 보고할 때 이 각주가 함께 가야 한다. 수치만 제시하면
+심사자가 9/28을 학습 불안정으로 읽는다. 보고 형식은 "NaN epoch 9/28 (iteration 수준
+NaN 비율 0.014%; epoch 평균은 단일 NaN에 의해 오염된다)"로 한다.
+
+재현:
+```bash
+$CERBERUS_PY - <<'EOF'
+import re, collections
+tot = collections.Counter(); nan = collections.Counter()
+for l in open('/home/work/seoik/runs/abl_flow/train.log', errors='ignore'):
+    m = re.search(r'Train: data epoch: \[(\d+)\].*?totalloss: (nan|[0-9.]+)', l)
+    if m:
+        e = int(m.group(1)); tot[e] += 1
+        if m.group(2) == 'nan': nan[e] += 1
+print(f'출력 {sum(tot.values())}개 중 NaN {sum(nan.values())}개')
+EOF
+```
+
