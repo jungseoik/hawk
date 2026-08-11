@@ -12,7 +12,7 @@
 
 제안 프레임워크는 2단계로 학습된다.
 
-- **Stage 1 (사전 학습, Pretraining):** 대규모 비디오-캡션 코퍼스(WebVid)에서 세 스트림(Appearance, Dynamic, Static)을 각각 독립적인 텍스트 감독으로 학습한다. 이 단계에서 다섯 개의 손실 항(L_VL, L_sim, L_ML, L_BL, L_dis)이 모두 활성화되며(Section 3, 수식 10), 각 스트림은 자신의 모달리티에 특화된 표현을 획득한다.
+- **Stage 1 (사전 학습, Pretraining):** 대규모 비디오-캡션 코퍼스(WebVid)에서 세 스트림(Appearance, Dynamic, Static)을 각각 독립적인 텍스트 감독으로 학습한다. 이 단계에서 네 개의 손실 항(L_VL, L_ML, L_BL과 실효 비활성인 표현 손실)이 활성화되며(Section 3, 수식 10; `L_sim`·`L_dis`는 구현상 존재하나 퇴화하여 기울기를 제공하지 않는다 — Appendix A), 각 스트림은 자신의 모달리티에 특화된 표현을 획득한다.
 - **Stage 2 (미세 조정, Finetuning):** 이상 이해(anomaly understanding) 데이터셋에서 세 스트림의 임베딩을 연결(concatenation)한 후 통합 언어 손실로 미세 조정한다. 중간 표현 손실(L_sim, L_dis)은 스트림 분리를 유지하기 위해 개별 압축 표현에 대해 독립적으로 계산된다. 이 단계에서 시각 토큰 길이는 `num_video_query_token × 3`으로 확장된다.
 
 ### 검증 무대 (Validation Testbed)
@@ -56,7 +56,7 @@ Scene-word Recall은 정답 캡션에 나타난 장면 어휘를 **고정 어휘
 
 ### 베이스라인 (Baselines)
 
-일반 비디오-언어 모델(Video-ChatGPT, VideoChat, Video-LLaMA, LLaMA-Adapter, Video-LLaVA)과, **정적 스트림을 두지 않는 이중 스트림(dynamic-only) 접근**을 핵심 비교 대상으로 둔다. 후자는 CVD에서 정적 스트림을 제거한 특수 사례(이 경우 동적-정적 손실 L_dis는 자동으로 소멸)에 해당하므로, 정적 스트림의 순수 기여를 분리해 측정하는 통제된 베이스라인 역할을 한다.
+일반 비디오-언어 모델(Video-ChatGPT, VideoChat, Video-LLaMA, LLaMA-Adapter, Video-LLaVA)과, **정적 스트림을 두지 않는 이중 스트림(dynamic-only) 접근**을 핵심 비교 대상으로 둔다. 후자는 CVD에서 정적 스트림을 제거한 특수 사례에 해당하므로, 정적 스트림의 순수 기여를 분리해 측정하는 통제된 베이스라인 역할을 한다.
 
 **고전 VAD 방법을 비교표에 포함하지 않는 이유.** Section 1과 Section 2.1이 배경으로 인용하는
 초기 VAD 연구(MIL 기반 약지도 학습, 정상 비디오 기반 비지도 학습 등)는 프레임 단위 이상 점수만
@@ -269,7 +269,7 @@ H1을 도메인 이름이 아닌 측정 가능한 양에 조건화한 이유는,
 
 ## 4.7 E4: 상보성 일반성 검증 (Complementarity Generality)
 
-**목표.** CVD(상보 분해 + 방향성 분리 목적함수)가 특정 백본·특정 과제에 종속되지 않음을 입증하여, 기여를 일반 원리로 정립한다(기여 C1).
+**목표.** CVD(상보 분해 + 모달리티 정합 언어 감독)가 특정 백본·과제에 종속되지 않는지를 검정한다. **본 논문은 이를 검증하지 않으며 계획만 기술한다** — 따라서 일반성은 C1의 주장 범위에 포함되지 않는다.
 
 본 논문은 단일 백본(EVA-ViT + Q-Former + LLaMA-2)에서만 검증하며, 백본·과제 일반성은 **검증하지 않은 채 향후 과제로 남긴다.** 계획은 다음과 같다.
 
