@@ -1,0 +1,722 @@
+[
+  {
+    "clip_id": "DoTA__Video__8dI7OolIEXY_000419_video.mp4",
+    "video_path": "DoTA/Video/8dI7OolIEXY_000419_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down a city street at second 3, the current vehicle might be involved in a collision with the bus or the truck due to congested traffic and tight spacing between the vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__HzVbo46kkBA_004735_video.mp4",
+    "video_path": "DoTA/Video/HzVbo46kkBA_004735_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the wet city street filled with cars and trucks during heavy rain, the vehicle in the first-person view suddenly skids on the slippery road due to the harsh weather conditions, colliding into the wooden box on the street and causing some damage to the vehicle's front bumper.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__y1vGuUK0db4_004053_video.mp4",
+    "video_path": "DoTA/Video/y1vGuUK0db4_004053_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the busy city street, the current vehicle gets too close to a bicyclist and clips their back wheel, causing the cyclist to lose balance and fall off their bike.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__O9uvBFovKj8_005434_video.mp4",
+    "video_path": "DoTA/Video/O9uvBFovKj8_005434_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the street, a pedestrian suddenly crosses the road without warning, and the driver has to abruptly slam on the brakes to avoid hitting them, causing a sudden jolt and a loud screeching noise from the tires.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "ShanghaiTech__training__videos__11_005.mp4",
+    "video_path": "ShanghaiTech/training/videos/11_005.mp4",
+    "source_dataset": "ShanghaiTech",
+    "description": "A group of people engaging in various activities such as walking, and going about their daily routines near a bridge over a river, with occasional shots of empty streets, reflecting the fluctuating levels of busyness in the area.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__3Sqeb-l1RPA_003874_video.mp4",
+    "video_path": "DoTA/Video/3Sqeb-l1RPA_003874_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While attempting to pass the man on the scooter, the red car side-swiped an oncoming vehicle, causing damage to both the cars involved in the accident.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos103_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos103_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video depicts a seemingly innocuous interaction between two individuals in a store setting, who are positioned around shelves stocked with merchandise. Initially, one person, a man dressed in blue, is busy organizing or sorting items on the shelves. Another individual, a man wearing black attire, approaches the opposite side of the shelf and begins an interaction with the man in blue by engaging in conversation across the shelves. Subsequently, the man in blue walks around to join the man in black, continuing their discussion while both are examining the shelves as if assessing the products or conversing about their contents. The scene turns abnormal when the man in black nonchalantly raises his arm and places his hand on a box on the shelf—an action that may seem benign but could suggest a subtle exchange of illicit goods, the concealment of stolen items, or tampering with the merchandise in a surreptitious manner. Without more context or additional actions, we can only theorize that there might be something amiss with the seemingly normal interaction, which could potentially relate to a crime involving theft or contraband.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__LfKfK4I5RPE_002937_video.mp4",
+    "video_path": "DoTA/Video/LfKfK4I5RPE_002937_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the street at night, the current vehicle suddenly skids on a slippery, wet road due to heavy rainfall, causing it to collide with a nearby truck that was also struggling to maintain control in the poor driving conditions.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene12__normal_scene_12_scenario_6.mp4",
+    "video_path": "UBnormal/Scene12/normal_scene_12_scenario_6.mp4",
+    "source_dataset": "UBnormal",
+    "description": "The video features an aerial view of a bustling city intersection at night with people crossing the street, a large yellow building, and trees with green leaves.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__kjVywUi1WK4_003388_video.mp4",
+    "video_path": "DoTA/Video/kjVywUi1WK4_003388_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "During the rainy drive, the red truck hydroplanes on the wet street, causing it to lose control and sideswipe the car, resulting in minor damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__bhA2ckvE-TQ_005336_video.mp4",
+    "video_path": "DoTA/Video/bhA2ckvE-TQ_005336_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the car is driving on the wet road, the vehicle suddenly hydroplanes due to the slippery conditions, losing control and colliding with a parked car on the side of the street.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__kVhgFPPG-wo_000956_video.mp4",
+    "video_path": "DoTA/Video/kVhgFPPG-wo_000956_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While waiting at the busy intersection, the silver car suddenly gets rear-ended by another vehicle due to the slippery road conditions from the rain.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Abuse008_x264.mp4",
+    "video_path": "UCF_Crime/videos/Abuse008_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video appears to describe a sequence of events involving several police officers and a detained woman in a cell, but amid the interactions, some abnormalities related to possible police misconduct and the handling of the woman's possessions occur. \n\nThe key abnormality centers around the female police officer who conducts a body search of the woman, seemingly standard procedure, but then the woman retrieves a red object from her clothing after the search, which the officer then confiscates—suggesting a failure in the initial search procedure. Moreover, physical abuse occurs when a policeman pushes the woman, causing her to fall and hit her head on a bed. Throughout the video, the officers' actions oscillate between aggressive and care-taking behaviors, indicated by pushing the woman to the ground and later attending to her by wiping her face and providing comfort.\n\nThe latter part of the video displays attention to the woman's well-being by the officers, but the initial aggressive behavior and incomplete search raise concerns about the woman's treatment while in custody and the thoroughness of police procedures. Although the video ends with the officers showing care, the inconsistency in their actions and the red object found after a body search are significant points of concern.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "ShanghaiTech__training__videos__01_039.mp4",
+    "video_path": "ShanghaiTech/training/videos/01_039.mp4",
+    "source_dataset": "ShanghaiTech",
+    "description": "A group of people can be seen walking along various paths and sidewalks, while people strolls nearby.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__V3--0ubJkNE_006107_video.mp4",
+    "video_path": "DoTA/Video/V3--0ubJkNE_006107_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving under the bridge, the red bus misjudges the height clearance and collides with the bottom of the bridge, causing damage to the top of the bus and delaying traffic flow.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__LfKfK4I5RPE_002296_video.mp4",
+    "video_path": "DoTA/Video/LfKfK4I5RPE_002296_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving through the snowy street, the car fails to stop in time at the red traffic light due to the slippery road conditions and rear-ends the bus stopped in front of it, resulting in a minor collision.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__ruiSuGHJf6Q_001501_video.mp4",
+    "video_path": "DoTA/Video/ruiSuGHJf6Q_001501_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While the white and blue bus is driving down the street, a sudden miscalculation causes the bus to collide with the black car, resulting in a minor fender bender and some damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__V3--0ubJkNE_002152_video.mp4",
+    "video_path": "DoTA/Video/V3--0ubJkNE_002152_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the highway, the white car suddenly collides with the back of the bus when it brakes unexpectedly, causing the blue car following closely behind to rear-end the white car, resulting in a chain-reaction accident.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos668_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos668_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video appears to be surveillance footage from an urban street, capturing a series of ordinary urban scenes. Initially, everything seems normal with a fire truck driving across the road, a bus passing by, and a woman with a yellow umbrella walking along. The scene continues with mundane activities as vehicles, including two buses and a motorcycle, navigate through the street. However, an abnormal event unfolds when a white car drives into the lane, makes a turn, and then stops on the road unexpectedly. This interruption in the flow of traffic is out of the ordinary and could potentially signal a traffic violation or the precursor to a more serious crime, such as a planned ambush or abduction, especially if the stop was sudden and without apparent cause. The subsequent passing of a woman by the stationary white car adds a layer of complexity, potentially placing her as a witness or a participant in whatever event the white car's unusual behavior might be related to. While the description provided doesn't explicitly state a crime, the abnormal behavior of the white car stopping abruptly on the road could be associated with, or indicative of, criminal activity.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__8dI7OolIEXY_005841_video.mp4",
+    "video_path": "DoTA/Video/8dI7OolIEXY_005841_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the wet street, the car's brakes might have been compromised due to the water, causing it to rear-end the blue truck, resulting in a collision and damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__PqbpIHZvjMA_005274_video.mp4",
+    "video_path": "DoTA/Video/PqbpIHZvjMA_005274_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the driver captures the busy city street through the first-person view, they become momentarily distracted by the close-up shots of cars and trucks. This leads to a sudden rear-end collision with another vehicle as the driver fails to notice the traffic slowing down in front of them.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "ShanghaiTech__training__videos__01_069.mp4",
+    "video_path": "ShanghaiTech/training/videos/01_069.mp4",
+    "source_dataset": "ShanghaiTech",
+    "description": "A diverse group of people walkndown a walkway or sidewalk in different locations such as a park, street, and walkway, with individuals carrying backpacks or bags.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__JHfjuFrnpjA_004861_video.mp4",
+    "video_path": "DoTA/Video/JHfjuFrnpjA_004861_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "The current vehicle's side mirror clips the back end of a nearby car during a lane change, causing minor damage and leading to the driver losing control for a moment before regaining it and continuing to drive.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__CyeT8rEQOpQ_000546_video.mp4",
+    "video_path": "DoTA/Video/CyeT8rEQOpQ_000546_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the highway, the yellow vehicle unintentionally collides with the rear end of the red bus, causing a sudden jolt and resulting in minor scratches and dents on both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__e3hXj7S3QyA_000706_video.mp4",
+    "video_path": "DoTA/Video/e3hXj7S3QyA_000706_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the busy city street, the current vehicle suddenly gets rear-ended by a distracted driver in a van, causing a minor impact and damage to the bumper.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__RoadAccidents052_x264.mp4",
+    "video_path": "UCF_Crime/videos/RoadAccidents052_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "Unfortunately, without having access to the actual video content, I am unable to provide a dense description or analysis of the specific details related to the crime. As an AI developed by OpenAI with no capability to view or interact with external media, I can only offer hypothetical and general commentary based on the description provided.\n\nHowever, the brief description suggests that a car making a U-turn collided with a motorcycle. The abnormal part of this video that could be related to a crime would potentially involve the illegal or negligent action of the driver performing the U-turn. This could include the driver failing to observe proper traffic laws, not yielding to oncoming traffic, or making the U-turn in an area where such maneuvers are not permitted. It could also extend to the possibility of the driver being under the influence of substances or distracted. The video presumably captures the collision and may provide evidence of the illegal or negligent behavior. Summarizing the video, it presumably shows a traffic incident where a motorcyclist is struck by a car performing a possibly illegal or negligent U-turn, leading to an accident that could have criminal implications depending on the circumstances and local laws.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__ezY7QrSWeWw_001253_video.mp4",
+    "video_path": "DoTA/Video/ezY7QrSWeWw_001253_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the wet road, the red truck suddenly hydroplanes and loses control, causing it to collide with the car from which the video is being recorded.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__cfrLchAShxQ_002362_video.mp4",
+    "video_path": "DoTA/Video/cfrLchAShxQ_002362_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down a congested highway, the current vehicle is suddenly rear-ended by a distracted driver in a red sedan, causing a moderate amount of damage to the bumper and trunk area.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__zRZ9PJguIfE_005031_video.mp4",
+    "video_path": "DoTA/Video/zRZ9PJguIfE_005031_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the wet city street, the silver car suddenly hydroplanes and its rear end swerves, causing it to collide with a motorcycle, which subsequently falls and skids across the road.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__Hx8FMhmdOQU_004650_video.mp4",
+    "video_path": "DoTA/Video/Hx8FMhmdOQU_004650_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the blue car approaches the intersection with a red light, it fails to brake in time and rear-ends the stopped vehicle in front of it, causing damage to both cars and potentially leading to a traffic disruption.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__eN6y6-4C1Rc_006099_video.mp4",
+    "video_path": "DoTA/Video/eN6y6-4C1Rc_006099_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the city street, the current vehicle suddenly collides with the red scooter as it swerves unexpectedly into the car's path, causing both the scooter rider and the driver to lose control and suffer minor injuries.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__0RJPQ_97dcs_004867_video.mp4",
+    "video_path": "DoTA/Video/0RJPQ_97dcs_004867_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the busy city street, the white van in focus suddenly slams on its brakes to avoid hitting a pedestrian who has carelessly stepped onto the road. As a result, the current vehicle could not brake in time and rear-ends the white van, causing visible damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos011_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos011_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "I apologize for the confusion, but without the ability to view videos or any content beyond my training data, I'm unable to analyze or describe specific video content, including identifying any abnormalities related to a crime. My function is to provide information based on text inputs and answer queries to the best of my ability within the text-based framework with which I've been designed. If you provide me with more details or a scenario, I can help you create a hypothetical description or analysis based on the information you provide.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos237_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos237_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The abnormal part of this video that seems related to a crime involves two customers who entered the store and then exited the camera range suspiciously. Their behavior immediately upon entering—pushing the door open and promptly leaving the frame—could suggest they were intentionally avoiding being filmed, potentially to commit a crime outside of the camera's view. The two individuals' actions deviate from the typical behavior of customers who usually shop after entering a store. The presence of the two customers becomes more suspicious as they are notably absent after the sequence of other customers checking out and a clerk examining the counter, possibly indicating that they did not engage in ordinary shopping activities and may have had other motives for entering the store. The video suggests that something out of the ordinary occurred, with these two individuals as potential suspects in a crime.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene5__abnormal_scene_5_scenario_6.mp4",
+    "video_path": "UBnormal/Scene5/abnormal_scene_5_scenario_6.mp4",
+    "source_dataset": "UBnormal",
+    "description": "A possible accident in this situation could be the person lying on the floor tripping and falling due to not paying attention to their surroundings, causing injury and concern among the other people in the large building.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene27__normal_scene_27_scenario_1.mp4",
+    "video_path": "UBnormal/Scene27/normal_scene_27_scenario_1.mp4",
+    "source_dataset": "UBnormal",
+    "description": "The video takes place at a train station where people are walking around on the platform as a yellow train pulls in. On the platform, there is a bench and a long yellow and white train with red doors. People are walking, standing, and sitting on the bench. Black trash cans are also visible on the platform.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__T89zSiaMNgM_005826_video.mp4",
+    "video_path": "DoTA/Video/T89zSiaMNgM_005826_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "The current vehicle hydroplanes on the wet road, loses control, and sideswipes the parked white car on the side of the road, causing damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__4K_6s1n6BpU_006000_video.mp4",
+    "video_path": "DoTA/Video/4K_6s1n6BpU_006000_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the busy city street at night, the vehicle suddenly collides with a cyclist who was attempting to change lanes without a proper signal, causing a minor impact and damage to the front right side of the vehicle.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__Y4rb2_HaBdQ_000657_video.mp4",
+    "video_path": "DoTA/Video/Y4rb2_HaBdQ_000657_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the car continues down the busy tree-lined street, the traffic light ahead suddenly turns red. The white car in front of the vehicle abruptly comes to a stop, causing the driver recording the video to brake hard but ultimately colliding into the rear of the white car with a loud impact.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__5vKPYV5w6pw_003454_video.mp4",
+    "video_path": "DoTA/Video/5vKPYV5w6pw_003454_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the highway, the vehicle suddenly swerved to avoid a large pothole, causing it to scrape against the guardrail and damaging both the guardrail and the vehicle's side view mirror.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene12__abnormal_scene_12_scenario_2.mp4",
+    "video_path": "UBnormal/Scene12/abnormal_scene_12_scenario_2.mp4",
+    "source_dataset": "UBnormal",
+    "description": "One possible impact or accident in this situation could be a person dancing and not paying attention while crossing the street at the intersection and getting struck by a vehicle that doesn't have enough time to react, resulting in injury or worse for the pedestrian and potential damage to the vehicle involved.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__3tEZvtQZ18Q_003774_video.mp4",
+    "video_path": "DoTA/Video/3tEZvtQZ18Q_003774_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While navigating through the busy city streets, the driver accidentally rear-ends a stopped vehicle as they get distracted by the city's lively atmosphere.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__JkYzYrJpSoQ_005028_video.mp4",
+    "video_path": "DoTA/Video/JkYzYrJpSoQ_005028_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the vehicle continues to drive down the snowy road, another car suddenly skids on the wet surface and swerves into the current vehicle's lane, resulting in a collision between the two cars.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__UbDCiQVuzPY_002951_video.mp4",
+    "video_path": "DoTA/Video/UbDCiQVuzPY_002951_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving in the middle lane, the yellow car in the adjacent lane suddenly swerves towards the current vehicle without using a turn signal, resulting in a side impact collision between both cars.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos398_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos398_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "In the video, we observe a sequence of vehicles passing by, including a white truck, white van, white car, yellow trucks, a black jeep, and a red truck. The abnormal part related to potential criminal activity occurs when a man in white clothes interacts with the driver of a white truck that has stopped. The description indicates that the man walks to the back of the truck before approaching the front to give a piece of paper to the driver. This behavior is atypical and could be indicative of an illicit exchange or transaction, perhaps involving contraband, illegal goods, or a payoff - especially in the context of crime analysis. Given the nature of the video, we don't have concrete evidence to confirm the criminality of the act, but in law enforcement terms, such a scenario might be flagged for further surveillance or investigation based on the suspicion raised by the man's actions and the paper exchange with the truck driver.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene23__normal_scene_23_scenario_2.mp4",
+    "video_path": "UBnormal/Scene23/normal_scene_23_scenario_2.mp4",
+    "source_dataset": "UBnormal",
+    "description": "In the video, there is an empty city street lined with tall buildings, gradually filling with pedestrians and a motorcyclist. The daily hustle and bustle of city life are depicted, and details such as clothing and signs on the buildings provide context to the urban setting.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__lmykriTbncM_004427_video.mp4",
+    "video_path": "DoTA/Video/lmykriTbncM_004427_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "A possible accident in this scenario could be the driver of the current vehicle rear-ending a car in front of them, due to the sudden stoppage of traffic at a red light at the busy city intersection.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__RASKiMoxhOE_003683_video.mp4",
+    "video_path": "DoTA/Video/RASKiMoxhOE_003683_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the road with trees on both sides, the car swerved to avoid an animal that suddenly darted onto the road and crashed into one of the trees, causing significant damage to the front of the vehicle.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__Y4rb2_HaBdQ_001716_video.mp4",
+    "video_path": "DoTA/Video/Y4rb2_HaBdQ_001716_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While navigating through the busy city street, a sudden appearance of a cyclist from a blind spot caused the current vehicle to swerve, resulting in a minor collision with a parked car on the side of the road.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Stealing024_x264.mp4",
+    "video_path": "UCF_Crime/videos/Stealing024_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video depicts a dining area with several patrons seated at seven tables positioned in a row. As the scene unfolds, individuals can be observed walking down a corridor alongside the tables. Amidst this activity, an individual traverses the corridor and ingeniously facilitates a theft: this person stealthily relocates a black bag—belonging to a diner at the second table—and positions it onto the chair of a different patron, who is wearing a white shirt, sitting at that same table. Subsequently, capitalizing on the orchestrated confusion, a man dressed in blue clothing, discreetly embedded within the crowd, seizes the opportunity to purloin the black bag from behind the now unsuspecting person in the white shirt. The abnormality in the otherwise everyday setting of people dining is the cunning execution of a coordinated theft, which involves the manipulation of the bag's location to create a moment of vulnerability that the thief exploits. This criminal act is committed seamlessly amid the background of routine activity, perhaps in hopes that blending into the normalcy would reduce suspicion and the likelihood of detection.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__hdOtS-BpUPY_004623_video.mp4",
+    "video_path": "DoTA/Video/hdOtS-BpUPY_004623_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the rain-soaked street, the red car hydroplanes and loses control, colliding with the black car parked on the side of the road, causing significant damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UBnormal__Scene9__normal_scene_9_scenario_2.mp4",
+    "video_path": "UBnormal/Scene9/normal_scene_9_scenario_2.mp4",
+    "source_dataset": "UBnormal",
+    "description": "A person is seen walking across a snowy crosswalk at night, joined by various other individuals including a woman. They are all dressed in warm clothing appropriate for the cold weather, with street signs and traffic signals occasionally visible in the background.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__4wKjxDXnmYs_000720_video.mp4",
+    "video_path": "DoTA/Video/4wKjxDXnmYs_000720_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the driver of the current vehicle approaches the red light, a sudden brake failure occurs, causing the vehicle to skid on the wet road and rear-end the car stopped at the red light in front of them, resulting in a minor collision and damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__Sihe6aeyLHg_003418_video.mp4",
+    "video_path": "DoTA/Video/Sihe6aeyLHg_003418_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "During the video, the car hydroplanes due to the wet road conditions and loses control, colliding with the truck in the adjacent lane.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos530_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos530_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "Based on the detailed description provided, it is difficult to definitively identify any abnormal activities directly related to a crime without additional context or the ability to see specific interactions between individuals and items in the store. However, there are a few points that could be considered suspicious or noteworthy:\n\n1. The woman in pink moves around the store, at one point squatting down to look for something, then later walking around with something, and finally going to the checkout. There are multiple mentions of people in pink, so it's not clear if this is the same person or several individuals. If it is the same individual engaging in seemingly aimless or erratic movement, this could be construed as potential shoplifting behavior.\n\n2. The man in the purple shirt enters from the left and later exits from the left after walking to various points on the screen. The repeated entry and exit without clear purpose could indicate suspicious behavior.\n\n3. The repeated mention of people entering and leaving without clear interactions, particularly those wearing hats and sunglasses (common items used to conceal identity), could suggest potential for theft, especially if they are not seen to make a purchase.\n\n4. The description does not mention security incidents, direct interactions with products, or clear indications of theft such as concealing merchandise, which would be clearer signs of criminal activity.\n\nOverall, without specific indicators of theft, such as concealing merchandise, or explicit criminal behavior, the description does not provide conclusive evidence of a crime. To provide a more accurate analysis, one would need",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Vandalism034_x264.mp4",
+    "video_path": "UCF_Crime/videos/Vandalism034_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video portrays an act of vandalism or possible breaking and entering. It features two individuals, one wearing blue pants, a gray shirt, and a gray hat, along with a blue mask, alongside another individual covered entirely in blue. The men are observed scoping out the entrance of a building before engaging in a suspicious conversation as they back away from the door. Following this, the man in the gray shirt retrieves an unidentified item from the blue backpack carried by his companion. He uses this item to repeatedly strike the door with clear intent, suggesting an attempt to damage or break through it. During this act of aggression, the man in blue maintains a lookout, surveying the surroundings, which indicates the potential premeditation of these actions to avoid detection and capture. The man in the gray shirt's repeated efforts to breach the door while his accomplice acts as a sentry underscore the abnormal and criminal nature of the behavior captured in the video. Overall, the video summarizes an incident that involves property damage or unlawful entry and showcases the coordinated effort of the two individuals involved.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__t4Cvbdtebk0_003096_video.mp4",
+    "video_path": "DoTA/Video/t4Cvbdtebk0_003096_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the street at night, the current vehicle collides with a white car that suddenly swerves into their lane, as the driver was unable to see it properly due to the blurry visibility and rainy conditions.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__TNZv-NBcV5U_002389_video.mp4",
+    "video_path": "DoTA/Video/TNZv-NBcV5U_002389_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving through the intersection on a green light, the current vehicle gets into an accident as a cyclist suddenly appears in its path, causing an unexpected collision and resulting in damage to both the cyclist and the vehicle.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos862_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos862_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The abnormal part of the video related to a crime appears to involve a subtle exchange between the man in black clothes and the man in gray. As the video progresses, it becomes apparent that the man in black clothes has intentionally left the room, potentially to ensure that the coast is clear or to fabricate an alibi. The man in gray clothes then takes advantage of the empty office to pack his things, which could suggest that he is either stealing or tampering with office property. Upon the return of the man in black, the two men greet each other amicably. Notably suspicious is the interaction involving a black cable and an unidentified object that switches hands between the two. The man in gray places the cable on the table, which might be a decoy to distract from the real item of interest that he found in the man in black's hand. The transaction concludes when the man in gray returns the item to the man in black, who then departs — an exchange that suggests possible collusion in illicit activities, such as theft, espionage, or the transfer of contraband or sensitive information. This entire sequence, although outwardly mundane, hints at criminal behavior that is meant to be concealed within the normalcy of office interactions.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__VxWJchENocA_000160_video.mp4",
+    "video_path": "DoTA/Video/VxWJchENocA_000160_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "During the video, while the red car is driving down the street next to the mountain, a truck suddenly pulls out of a side street without looking, causing the red car to swerve and crash into the parked white car on the gray road, resulting in a moderate impact accident.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__Z9K13eBUwJM_000332_video.mp4",
+    "video_path": "DoTA/Video/Z9K13eBUwJM_000332_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the snowy street, the white car loses traction on the slippery surface and collides with the black and yellow taxi, causing minor damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__kjVywUi1WK4_003502_video.mp4",
+    "video_path": "DoTA/Video/kjVywUi1WK4_003502_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the white car approaches an intersection, the traffic light turns yellow. The driver tries to make it through the light, but the red car coming from the opposite direction attempts to make a left turn at the same time. The two cars collide, causing significant damage to both vehicles.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos323_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos323_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video is a bustling and busy scene with substantial foot traffic and numerous interactions among the individuals present. The abnormal part related to a potential crime is subtle and not explicitly detailed in the description provided. However, some suspicious activities might include the man in the white shirt who is frequently on his phone, potentially coordinating something, the individuals with yellow badges who may signify some level of access or authority within the area, and especially the man with the camera in the blue and white shirt who is recording, as well as the two ladies communicating with men and handing out papers, which could be indicative of some clandestine operation or information exchange. The fluctuating density of the crowd could be used as a cover for illicit activities. The constant movement and exchanges of items, such as badges and papers, and intimate communications suggest that something covert might be taking place under the guise of a normal gathering or event. The abnormality could lie in the distinct repeating patterns of behavior and the apparent organized manner in which some of these individuals are interacting, which raises questions about their intentions and activities within this busy scene.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos841_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos841_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "Without the ability to view the actual video content, I can still provide you with a conceptual analysis of what the described video might entail with regards to a potential crime. Given the description, it sounds like a crowded train platform with a significant number of people moving from the lower areas to the upper sections. If this video is related to a crime, an abnormal aspect could be the behavior of the crowd or a specific individual in reaction to an incident that is not immediately apparent. For instance, if the movement of people appears panicked or rushed beyond normal commuting activity, it may suggest the presence of a threat, such as a pickpocket, assailant, or another security breach causing alarm. The clearance of the platform as the train departs could indicate that the crowd has been responding to an emergency situation or evacuating due to a criminal act that required them to vacate the area. In summary, the video seems to document the dynamics of a crowded train platform before a train's departure, with potential signs of an irregular situation that could involve a crime based on the behavior of the individuals present.\n\nPlease note that the description provided lacks specific details of any overt criminal activity, and this analysis is purely hypothetical, interpreting the potential for a crime within the given context.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Fighting045_x264.mp4",
+    "video_path": "UCF_Crime/videos/Fighting045_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The anomalous part of the video related to crime involves an altercation between multiple individuals. Initially, the video shows a group of people exiting a building and engaging in what seems to be a casual conversation. The situation quickly escalates when one man emerges and gets involved in a physical confrontation with two others. The scuffle leads to several punches being exchanged, resulting in one individual getting knocked to the ground, highlighting an assault—which is the criminal element within the video. As the dispute continues, another man joins the altercation, leading to verbal arguments before the crowd eventually breaks apart. The tension doesn't completely subside, as one man can be seen pushing another, causing the group to disperse once more. Throughout this conflict, passers-by are noticed walking by the scene—some stop to watch and potentially attempt to de-escalate the situation, gathering to the right side of the frame. Despite some onlookers advising against the violence, two of the men persist in their brawl as everyone else moves closer, surrounding them, indicating a continued interest or concern. The camera then shifts focus, showing two women walking by, indicating that life outside of the immediate altercation goes on unaffected. The video documents a blatant act of violence and public disorder that requires attention from law enforcement or conflict resolution authorities.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__a_VxrUq9PmA_005011_video.mp4",
+    "video_path": "DoTA/Video/a_VxrUq9PmA_005011_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving on the slippery road during the transition from rain to snow, the car loses traction and skids, causing it to collide with a nearby telephone pole.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__PqbpIHZvjMA_001793_video.mp4",
+    "video_path": "DoTA/Video/PqbpIHZvjMA_001793_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the driver of the current vehicle is waiting at the red light at the intersection, a silver car fails to notice the stopped traffic and rear-ends the current vehicle, causing minor damage to both cars involved.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__kld-iYpdjyo_003085_video.mp4",
+    "video_path": "DoTA/Video/kld-iYpdjyo_003085_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "In this scenario, one possible accident could be that the motorcyclist loses control of their motorcycle due to the slippery road conditions caused by the rain, leading to a collision with the nearby car on the highway.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__uO2zGO5ydBc_002533_video.mp4",
+    "video_path": "DoTA/Video/uO2zGO5ydBc_002533_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the busy city street, the car's front bumper collides with the rear bumper of the car in front, causing a minor fender bender due to sudden braking or traffic congestion.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__X8VgGb1fJDU_000468_video.mp4",
+    "video_path": "DoTA/Video/X8VgGb1fJDU_000468_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the highway, the current vehicle suddenly collides with the white truck as it unexpectedly changes lanes without signaling, causing both vehicles to swerve towards the person fishing by the road.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__xToi8YVZM8o_003752_video.mp4",
+    "video_path": "DoTA/Video/xToi8YVZM8o_003752_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "A possible accident in this scenario could be the driver becoming momentarily distracted by the beautiful scenery, causing them to accidentally drift into the adjacent lane. This results in a side collision with another vehicle, leading to both cars swerving off the road.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos404_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos404_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video depicts a sequence of events surrounding a yellow car and several individuals. A man initially opens the back door of the yellow car, possibly placing or retrieving items. Simultaneously, another man in white approaches a central trash can, potentially to dispose of something. The man associated with the yellow car then finalizes his packing, with the vehicle remaining stationary for a time before he departs the scene. Subsequently, a man in black carries trash to the same central receptacle and returns, possibly without notice or involvement in the other activities. Meanwhile, a box is loaded into the yellow car, indicating further transfer of items. Lastly, the man enters the driver's seat of the yellow car and drives away. \n\nThe abnormality related to a potential crime involves the actions of the man in white. Although not explicitly criminal, his behavior—a focused approach to the trash can directly after the initial interaction with the yellow car—could be suspicious, as it might imply he is discretely disposing of evidence. The timing of this action in conjunction with the yellow car activities could suggest a coordination that needs to be investigated. However, the description does not provide explicit details of criminal acts, so the abnormalities require further context to be fully understood as criminal in nature.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos198_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos198_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "As an analyst observing this video, the sequence of events raises suspicion of potential criminal activity. The black car's behavior appears normal as it makes a routine turn with its lights on; however, the white car's actions are of concern since it closely tails the black car and seems to emerge clandestinely from a garage. The garage door's motion, prematurely halting halfway while closing, could indicate the white car's haste to exit without attracting attention, possibly to avoid detection or to follow the black car with a potentially nefarious intent. This unusual activity, coupled with the seemingly covert manner of exit, signals that the occupants of the white car might be engaged in surveillance, stalking, or preparing to commit a crime involving the black car or its occupants. The act of following another vehicle closely from a private property could hint at a planned confrontation, theft, or other criminal acts that are about to unfold after the capture of this footage.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__DyzL2sahobA_004809_video.mp4",
+    "video_path": "DoTA/Video/DyzL2sahobA_004809_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While stopping at a traffic light behind the red car, a vehicle from behind fails to stop in time and rear-ends the current vehicle, causing minor damage to both cars.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__l1XbmdmGr0Q_001366_video.mp4",
+    "video_path": "DoTA/Video/l1XbmdmGr0Q_001366_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "A possible impact or accident in the current vehicle could be a sudden collision with another vehicle while changing lanes on the highway, due to the driver being distracted by the surrounding scenery or by the reflection of the truck and mountain in the windshield.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__Normal_Videos545_x264.mp4",
+    "video_path": "UCF_Crime/videos/Normal_Videos545_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "The video initially appears to depict a typical scene of vehicles and a cyclist moving along various urban roads, with the camera capturing these mundane activities from a dynamic aerial perspective. As the video progresses, however, there is an abnormal occurrence that seems related to a potential crime: the camera zooms in on a gray car on the left side, suggesting something about this vehicle has caught the attention of either the operator or some surveillance system. This heightened focus might indicate the gray car is involved in suspicious activity or criminal behavior that the video is attempting to document. As the camera continues to track the movement of vehicles, including making a transition to monitor a different set of roads, it is likely that the camera operator is either trying to keep an eye on this gray car or is surveying for further unusual behavior. The video cuts between various scenes, but the persistent tracking and zooming in on specific vehicles implies an active search or monitoring for clues of a criminal act. The monitoring includes several stops at intersections and follows vehicles driving toward the road below, with special attention given to two cars. The camera's motion, which is not steady but rather starts and moves with particular vehicles, underscores the video's surveillance intent. It is difficult to ascertain the exact nature of the crime from this description, but the abnormal attention given to the gray car and the subsequent vehicles suggests an ongoing investigation or the tracking of suspects involved in illicit activity.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__JV0D-YkWHD8_003816_video.mp4",
+    "video_path": "DoTA/Video/JV0D-YkWHD8_003816_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "During a scene in which the driver is navigating through a busy intersection, a white car fails to yield at a stop sign and suddenly pulls out in front of the driver's vehicle, causing an impact as the two cars collide.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__D_pyFV4nKd4_002874_video.mp4",
+    "video_path": "DoTA/Video/D_pyFV4nKd4_002874_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "As the driver of the current vehicle navigates the wet street in the rain, they suddenly hydroplane and lose control, resulting in a collision with the white truck parked in the parking lot.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "DoTA__Video__6E2N9ld0eHg_004179_video.mp4",
+    "video_path": "DoTA/Video/6E2N9ld0eHg_004179_video.mp4",
+    "source_dataset": "DoTA",
+    "description": "While driving down the highway in the rain with the wet road and overcast sky, the current vehicle loses traction and hydroplanes, resulting in a collision with another vehicle traveling in the same direction.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  },
+  {
+    "clip_id": "UCF_Crime__videos__RoadAccidents085_x264.mp4",
+    "video_path": "UCF_Crime/videos/RoadAccidents085_x264.mp4",
+    "source_dataset": "UCF_Crime",
+    "description": "Based on the dense description provided, the video centers on a vehicular accident and a subsequent unusual gathering that suggests potential criminal behavior. In summary, the video captures an incident where a motorcycle is struck by a white car traveling in the opposing direction. The impact is severe enough to eject the motorcyclist onto the sidewalk. Following the collision, a battery car stops beside the white car, then drives away, which is unusual as one would expect it to stay at the scene of an accident. Passengers from the white car, as well as bystanders, exit their vehicles and gather around the collision site, disregarding normal traffic flow, which causes other vehicles to halt. Three strong men approach the injured motorcyclist, with one appearing to direct the others, perhaps indicating something nefarious. Meanwhile, passers-by oscillate their attention between the injured motorcyclist and the occupants of the white car, and they also show concern for a child that was apparently on the motorcycle. The abnormal elements in this video suggesting a potential crime include the immediate departure of the battery car after the accident, the notable interest and behavior of the three men approaching the victim, and the unusual amount of attention the parties involved give to each person at the scene instead of seeking medical assistance or police intervention. This behavior may hint at an orchestrated event rather than a random accident.",
+    "label": null,
+    "annotator": null,
+    "seconds_spent": null
+  }
+]

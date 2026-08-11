@@ -47,6 +47,10 @@ def main():
     ap.add_argument("--workers", type=int, default=32,
                     help="동시 요청 수. 429가 잦으면 낮출 것")
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--from-file",
+                    help="번역 대상 목록을 담은 JSON. 각 항목의 video_path 를 읽는다. "
+                         "지정하면 --queue-only/--sample 은 무시된다 — 대상이 이미 "
+                         "그 파일에서 확정돼 있기 때문이다.")
     args = ap.parse_args()
 
     import os as _os
@@ -63,7 +67,11 @@ def main():
         samples = {s["video"]: s.get("description", "") for s in json.load(f)}
 
     targets = list(samples)
-    if args.queue_only and os.path.exists(QUEUE):
+    if args.from_file:
+        with open(args.from_file) as f:
+            targets = [it["video_path"] for it in json.load(f)]
+        print(f"대상 {len(targets)}건 ← {os.path.basename(args.from_file)}")
+    elif args.queue_only and os.path.exists(QUEUE):
         with open(QUEUE) as f:
             queue = json.load(f)
         if args.sample:
