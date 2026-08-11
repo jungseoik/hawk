@@ -129,8 +129,13 @@ def main():
     ap.add_argument("--anno", default=ANNO)
     ap.add_argument("--workers", type=int, default=24)
     ap.add_argument("--limit", type=int, default=0, help="0이면 전체")
-    ap.add_argument("--top", type=int, default=400, help="주석 후보 상위 N")
-    ap.add_argument("--control", type=int, default=200, help="무작위 대조 표본 크기")
+    ap.add_argument("--top", type=int, default=0,
+                    help="candidate_score 상위 N. **기본 0 = 랭킹 사용 안 함.** "
+                         "라벨 실측에서 이 랭킹이 역효과임이 확인되었다(아래 주석 참조)")
+    ap.add_argument("--control", type=int, default=600,
+                    help="무작위 추출 표본 크기 — 현재 주 경로")
+    ap.add_argument("--out-name", default="annotation_queue.json",
+                    help="매니페스트 파일명 (분할별로 따로 만들 때 사용)")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -176,8 +181,18 @@ def main():
     for i, r in enumerate(results):
         r["candidate_score"] = round((r_static[i] + r_scene[i]) / 2, 4)
 
+    # ─── 후보 랭킹을 기본에서 끈 이유 (실측) ───────────────────────────────
+    # 정적 우세도 + 장면 어휘 밀도로 상위를 뽑으면 주석 부담이 줄 것으로 예상했으나,
+    # 사람이 150건을 라벨링한 결과 **정반대**였다:
+    #     context_critical 산출률   candidate  6/107 =  5.6%
+    #                              random     14/43 = 32.6%
+    # 원인은 명확하다 — "움직임이 적고 캡션에 장면 어휘가 많은" 클립은 대체로
+    # **정상 클립**이다(라벨 150건 중 98건이 normal). 즉 이 랭킹은 배경이 판정을
+    # 결정하는 클립이 아니라 아무 일도 일어나지 않는 클립을 골라낸다.
+    # 따라서 기본 경로를 무작위 추출로 바꾸고, 랭킹은 `--top N`으로만 쓴다.
+    # ──────────────────────────────────────────────────────────────────────
     ranked = sorted(results, key=lambda r: -r["candidate_score"])
-    top = ranked[: args.top]
+    top = ranked[: args.top] if args.top else []
 
     rng = random.Random(args.seed)
     pool_ids = {r["video"] for r in top}
@@ -185,10 +200,24 @@ def main():
                          min(args.control, max(len(results) - len(top), 0)))
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    stats_path = os.path.join(OUT_DIR, "mask_statistics.json")
+    # 통계 파일명을 매니페스트와 함께 분리한다. 분할별로 돌릴 때 전수(7,852) 통계를
+    # 덮어쓰면 논문 §4.3 표의 근거가 사라진다 — 실제로 한 번 겪었다.
+    suffix = args.out_name.replace("annotation_queue", "").replace(".json", "")
+    stats_path = os.path.join(OUT_DIR, f"mask_statistics{suffix}.json")
     with open(stats_path, "w") as f:
-        json.dump({ds: {"n": len(v), "mean": float(np.mean(v)),
-                        "median": float(np.median(v))} for ds, v in by_ds.items()}, f, indent=2)
+        json.dump({
+            # 측정 조건을 함께 남긴다. 값만 있으면 나중에 어떤 τ·어떤 플로우로 쟀는지
+            # 알 수 없고, 인접 프레임이 아니라 샘플 프레임 간 플로우로 재면 과대 추정된다.
+            "_meta": {
+                "source_annotation": os.path.basename(args.anno),
+                "n_total": len(results),
+                "flow": "Farneback, adjacent frames (i-1, i)",
+                "tau": MAG_THRESHOLD,
+                "note": "학습 파이프라인과 동일 방식. 샘플 프레임 간 플로우로 재면 과대 추정.",
+            },
+            "per_dataset": {ds: {"n": len(v), "mean": float(np.mean(v)),
+                                 "median": float(np.median(v))} for ds, v in by_ds.items()},
+        }, f, indent=2)
 
     # 주석용 매니페스트 뼈대 — 라벨 필드는 비워 둔다. 사람이 채운다.
     def skeleton(r, group):
@@ -207,7 +236,7 @@ def main():
 
     manifest = [skeleton(r, "candidate") for r in top] + \
                [skeleton(r, "random_control") for r in control]
-    manifest_path = os.path.join(OUT_DIR, "annotation_queue.json")
+    manifest_path = os.path.join(OUT_DIR, args.out_name)
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 

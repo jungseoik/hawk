@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "source_annotation": "all_videos_heldout.local.json",
+    "n_total": 471,
+    "flow": "Farneback, adjacent frames (i-1, i)",
+    "tau": 0.2,
+    "note": "\ud559\uc2b5 \ud30c\uc774\ud504\ub77c\uc778\uacfc \ub3d9\uc77c \ubc29\uc2dd. \uc0d8\ud50c \ud504\ub808\uc784 \uac04 \ud50c\ub85c\uc6b0\ub85c \uc7ac\uba74 \uacfc\ub300 \ucd94\uc815."
+  },
+  "per_dataset": {
+    "DoTA": {
+      "n": 296,
+      "mean": 0.45303231106235786,
+      "median": 0.46822435028698983
+    },
+    "CUHK_Avenue": {
+      "n": 1,
+      "mean": 0.1339858697385204,
+      "median": 0.1339858697385204
+    },
+    "Ped1": {
+      "n": 4,
+      "mean": 0.15044356365593115,
+      "median": 0.14797662228954084
+    },
+    "Ped2": {
+      "n": 2,
+      "mean": 0.10674924266581631,
+      "median": 0.10674924266581631
+    },
+    "ShanghaiTech": {
+      "n": 24,
+      "mean": 0.06072811204559949,
+      "median": 0.05961515465561225
+    },
+    "UBnormal": {
+      "n": 32,
+      "mean": 0.041167979337731184,
+      "median": 0.03262889628507653
+    },
+    "UCF_Crime": {
+      "n": 112,
+      "mean": 0.07310877318980047,
+      "median": 0.05319774394132653
+    }
+  }
+}
