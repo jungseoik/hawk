@@ -25,3 +25,4 @@ weights/
 experiments/bg_critical_benchmark/annotation_queue.json
 experiments/bg_critical_benchmark/descriptions_ko.json
 experiments/bg_critical_benchmark/labels_*.json
+experiments/bg_critical_benchmark/labels_llm*.json

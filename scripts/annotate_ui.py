@@ -167,31 +167,31 @@ function render(){
   $('rev').classList.add('hide');
   const imgs = (stage===0? D.motions : D.originals);
   $('strip').innerHTML = imgs.map(b=>'<img src="data:image/jpeg;base64,'+b+'">').join('');
+  const opts = '<span class="k">1</span>이상을 <b>특정</b>할 수 있다  '
+    + '<span class="k">2</span>이상해 보이나 <b>특정 불가</b>  '
+    + '<span class="k">3</span><b>이상이 없어</b> 보인다  '
+    + '<span class="k">4</span><b>판단 불가</b> — 화면이 부족';
   if(stage===0){
-    $('q').textContent = '1단계 — 배경을 지운 화면입니다. 여기서 이상을 알아볼 수 있습니까?';
-    $('keys').innerHTML = '<span class="k">1</span>충분히 알겠다  '
-      + '<span class="k">2</span>뭔가 있는 것 같은데 불충분  '
-      + '<span class="k">3</span>전혀 모르겠다<br>'
-      + '<span class="k">←</span>이전  <span class="k">S</span>보류';
+    $('q').textContent = '1단계 — 배경을 지운 화면입니다. 이 화면만으로 이상을 특정할 수 있습니까?';
+    $('keys').innerHTML = opts + '<br><span class="k">←</span>이전  <span class="k">S</span>보류';
   } else {
-    $('q').textContent = '2단계 — 원본 화면입니다. 여기서는 이상을 알아볼 수 있습니까?';
-    $('keys').innerHTML = '<span class="k">1</span>충분히 알겠다  '
-      + '<span class="k">2</span>대략 알겠다  '
-      + '<span class="k">3</span>모르겠다<br>'
-      + '<span class="k">←</span>1단계로';
+    $('q').textContent = '2단계 — 원본 화면입니다. 여기서는 이상을 특정할 수 있습니까?';
+    $('keys').innerHTML = opts + '<br><span class="k">←</span>1단계로';
   }
 }
+// 1 특정가능 / 2 이상하나 특정불가 / 3 이상 없음 / 4 판단불가(화면 부족)
 function label(a1,a2){
-  // 배경 없이 못 알아봤는데 원본에서 알아봄 → 배경이 결정적
-  if(a1>=3 && a2<=2) return 'context_critical';
-  if(a1===2 && a2===1) return 'context_dependent';
-  if(a1===1) return 'motion_sufficient';
-  return 'context_dependent';
+  if(a1===4 || a2===4) return 'unjudgeable';   // 마스크가 너무 성겨 판단 불가
+  if(a2===3)           return 'normal';        // 원본에서도 이상 없음 → 정상 클립
+  if(a1===1)           return 'motion_sufficient';
+  if(a2===1)           return 'context_critical';   // 배경 있어야 특정됨
+  return 'context_dependent';                        // 둘 다 특정 못함(부분 정보)
 }
-async function send(lab, skip){
+async function send(lab, skip, a2){
+  // 원본 답변(a1,a2)을 함께 저장한다. 나중에 도출 규칙을 바꿔도 다시 라벨링하지 않아도 된다.
   await fetch('/api/label',{method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({clip_id:D.clip_id, label:lab, skip:!!skip,
-                          a_motion:a1, video_path:D.clip_id})});
+                          a_motion_only:a1, a_original:a2===undefined?null:a2})});
   if(!skip){
     $('ren').textContent = D.desc_en || '(설명 없음)';
     $('rko').textContent = D.desc_ko || '';
@@ -206,9 +206,9 @@ document.addEventListener('keydown', async e=>{
   const k = e.key.toLowerCase();
   if(k==='arrowleft'){ if(stage===1){stage=0;render();} else load(Math.max(D.idx-1,0)); return; }
   if(k==='s' && stage===0){ send(null,true); return; }
-  if(['1','2','3'].includes(k)){
+  if(['1','2','3','4'].includes(k)){
     if(stage===0){ a1=parseInt(k); stage=1; render(); }
-    else { send(label(a1,parseInt(k)), false); }
+    else { const a2=parseInt(k); send(label(a1,a2), false, a2); }
   }
 });
 load();
@@ -250,7 +250,9 @@ class Handler(BaseHTTPRequestHandler):
             if not data.get("skip") and data.get("label"):
                 _state["labels"][data["clip_id"]] = {
                     "motion_sufficiency": data["label"],
-                    "a_motion_only": data.get("a_motion"),
+                    # 원본 답변을 남긴다 — 도출 규칙이 바뀌어도 재라벨링이 필요 없다.
+                    "a_motion_only": data.get("a_motion_only"),
+                    "a_original": data.get("a_original"),
                     "annotator": _state["annotator"],
                 }
                 _save()
