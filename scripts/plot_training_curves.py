@@ -46,6 +46,14 @@ RE_ITER = re.compile(
 
 # Averaged stats 와 반복 로그의 항목 순서가 다르다 (Averaged: total,ori,middle,motion,bg,middle_bg
 # / 반복 로그도 동일 순서). 재계산 시 이 키 순서를 공유한다.
+# 추세 판단에 쓸 epoch 의 최소 iteration 수.
+#
+# 로그는 진행 중인 epoch 도 부분 집계로 내보낸다. 그 값을 추세에 넣으면 앞쪽 몇 개
+# iteration 만으로 epoch 전체를 대표하게 되어 실제와 다른 방향이 나온다 — 실제로
+# n=3 인 부분 집계를 보고 "4 epoch 연속 상승"으로 잘못 보고한 적이 있고, 251 개가
+# 다 모이자 그 epoch 은 하락이었다. 완결되지 않은 epoch 은 표시만 하고 추세에서 뺀다.
+MIN_ITERS_FOR_TREND = 200
+
 LOSS_KEYS = ("total", "ori", "middle", "motion", "background", "middle_bg")
 
 
