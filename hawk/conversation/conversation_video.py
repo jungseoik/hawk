@@ -284,7 +284,14 @@ class Chat:
                 conv.append_message(conv.roles[0], "<Video><ImageHere></Video> "+ msg)
             return "Received."
 
-    def upload_video_without_audio(self, video_path, conv, img_list):
+    def upload_video_without_audio(self, video_path, conv, img_list, ablation="flow"):
+        """`ablation` 은 정적 스트림에 무엇을 넣을지 정한다 — 학습 때 쓴 값과 같아야 한다.
+
+        절제 arm 은 `static_ablation` 만 바꿔 학습하므로(`flow` / `random_mask` /
+        `duplicate` / `zero`), 평가에서 이 값을 넘기지 않으면 전부 기본값 `flow` 로
+        추론된다. 그러면 `duplicate` 로 학습한 모델에 상보 배경을 넣어 평가하는
+        train/test 불일치가 되고, 그 arm 의 수치는 조용히 무의미해진다.
+        """
         msg = ""
         if isinstance(video_path, str):  # is a video path
             ext = os.path.splitext(video_path)[-1].lower()
@@ -298,7 +305,8 @@ class Chat:
             # 학습은 시각 토큰 32x3=96 개로 하는데 추론은 64 개만 넣어 train/test
             # 불일치까지 있었다. 데모(app.py)와 모든 평가가 이 경로를 쓴다.
             video, video_motion, video_background = load_streams_aligned(
-                video_path, n_frms=32, image_size=224, sampling="uniform"
+                video_path, n_frms=32, image_size=224, sampling="uniform",
+                ablation=ablation
             )
             video, video_motion, video_background = apply_shared_transform(
                 self.vis_processor.transform, (video, video_motion, video_background)

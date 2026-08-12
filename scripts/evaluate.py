@@ -67,6 +67,35 @@ def filter_refusals(records, field_gt):
     return keep, len(records) - len(keep)
 
 
+def detect_static_ablation(ckpt_path):
+    """체크포인트가 속한 run 디렉터리의 config.yaml 에서 `static_ablation` 을 읽는다.
+
+    수동 지정에 맡기면 언젠가 빠뜨리고, 빠뜨려도 실행은 정상적으로 끝나며 수치만
+    조용히 틀린다. 학습이 남긴 설정을 근거로 삼는 편이 안전하다.
+    """
+    if not ckpt_path:
+        return None
+    d = os.path.dirname(os.path.abspath(ckpt_path))
+    for _ in range(3):                      # main/ → run/ 까지 거슬러 올라간다
+        cand = os.path.join(d, "config.yaml")
+        if os.path.exists(cand):
+            try:
+                from omegaconf import OmegaConf
+                cfg = OmegaConf.load(cand)
+                v = OmegaConf.select(cfg, "datasets.webvid.static_ablation")
+                if v is None:
+                    for ds in (cfg.get("datasets") or {}).values():
+                        if isinstance(ds, dict) or hasattr(ds, "get"):
+                            v = ds.get("static_ablation")
+                            if v:
+                                break
+                return v
+            except Exception:
+                return None
+        d = os.path.dirname(d)
+    return None
+
+
 def compute_bleu(references, hypotheses):
     """BLEU-1..4. 캡셔닝 논문 표준 구현(pycocoevalcap)을 쓴다.
 
@@ -308,13 +337,13 @@ def build_chat(cfg_path, ckpt, gpu_id):
     return Chat(model, vis_processor, device=f"cuda:{gpu_id}")
 
 
-def generate_one(chat, video_path, question, max_new_tokens, num_beams):
+def generate_one(chat, video_path, question, max_new_tokens, num_beams, ablation="flow"):
     from hawk.conversation.conversation_video import conv_llava_llama_2
 
     conv = conv_llava_llama_2.copy()
     conv.system = ""
     img_list = []
-    chat.upload_video_without_audio(video_path, conv, img_list)
+    chat.upload_video_without_audio(video_path, conv, img_list, ablation=ablation)
     chat.ask(question, conv)
     text, _ = chat.answer(
         conv=conv,
@@ -342,11 +371,13 @@ def run_eval(args):
         video_path = os.path.join(args.videos_dir, sample["video"])
         try:
             description = generate_one(
-                chat, video_path, args.describe_prompt, args.max_new_tokens, args.num_beams
+                chat, video_path, args.describe_prompt, args.max_new_tokens,
+                args.num_beams, ablation=args.static_ablation
             )
             qa = sample.get("QA") or []
             answer = (
-                generate_one(chat, video_path, qa[0]["q"], args.max_new_tokens, args.num_beams)
+                generate_one(chat, video_path, qa[0]["q"], args.max_new_tokens,
+                             args.num_beams, ablation=args.static_ablation)
                 if qa else None
             )
             records.append({
@@ -395,6 +426,8 @@ def run_eval(args):
         "config": {
             "cfg": args.cfg,
             "ckpt": args.ckpt,
+            "static_ablation": args.static_ablation,
+            "static_ablation_source": args.static_ablation_source,
             "anno": args.anno,
             "n_clips": len(records),
             "n_failed": failures,
@@ -447,6 +480,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cfg", default="configs/eval_configs/eval.yaml")
     ap.add_argument("--ckpt", default=None, help="arm 별 체크포인트 (config 값을 덮어씀)")
+    ap.add_argument("--static-ablation", default=None,
+                    help="정적 스트림 입력 모드. 지정하지 않으면 --ckpt 가 속한 run 의 "
+                         "config.yaml 에서 자동으로 읽는다. 학습 때와 다르면 그 arm 의 "
+                         "수치는 무의미해지므로 자동 검출을 기본으로 둔다.")
     ap.add_argument("--anno", default=DEFAULT_ANNO)
     ap.add_argument("--videos-dir", default=DEFAULT_VIDEOS)
     ap.add_argument("--out", default="experiments/out/eval.json")
@@ -465,6 +502,21 @@ def main():
     ap.add_argument("--compare", nargs="*", default=None,
                     help="결과 JSON 들을 비교 출력하고 종료")
     args = ap.parse_args()
+
+    # 정적 입력 모드는 학습이 남긴 config 에서 읽는 것을 기본으로 한다. 수동 지정에
+    # 맡기면 언젠가 빠뜨리고, 빠뜨려도 실행은 정상 종료하며 수치만 조용히 틀린다.
+    if getattr(args, "static_ablation", None):
+        args.static_ablation_source = "명시 지정"
+    else:
+        detected = detect_static_ablation(getattr(args, "ckpt", None))
+        args.static_ablation = detected or "flow"
+        args.static_ablation_source = (
+            f"{os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(args.ckpt))))}/config.yaml"
+            if detected else "기본값 (검출 실패)")
+    print(f"[eval] static_ablation = {args.static_ablation}  ← {args.static_ablation_source}")
+    if args.static_ablation_source.startswith("기본값") and getattr(args, "ckpt", None):
+        print("       ⚠ 학습 설정을 찾지 못했습니다. arm 별 평가라면 --static-ablation 을 "
+              "명시하십시오 — 학습과 다르면 그 수치는 무의미합니다.")
 
     if args.compare is not None:
         paths = args.compare or glob.glob("experiments/out/eval_*.json")
