@@ -2,7 +2,7 @@
 
 본 절은 먼저 상보적 시각 분해(Complementary Visual Decomposition, CVD)를 과제 비종속적 일반 원리로 정식화한 뒤(Section 3.1), 이를 비디오 이상 이해(Video Anomaly Understanding, VAU)의 3-스트림 모델 CERBERUS로 인스턴스화한다(Section 3.2 이하). 표기는 일관되게 외형=appearance(`z_a`), 동적=dynamic/motion(`z_m`), 정적=static/background(`z_b`)을 사용한다.
 
-<!-- [Figure 3 위치] CERBERUS 개요: CVD 원리(좌)와 VAD 3-스트림 인스턴스화(우). 외형/동적/정적 스트림이 각각 독립 인코더 파이프라인을 거쳐 LLaMA-2에 결합 입력되며, 방향성 분리 목적함수와 모달리티 정합 언어 감독으로 학습된다. -->
+<!-- [Figure 3 위치] CERBERUS 개요: CVD 원리(좌)와 VAU 3-스트림 인스턴스화(우). 외형/동적/정적 스트림이 각각 독립 인코더 파이프라인을 거쳐 LLaMA-2에 결합 입력되며, 모달리티 정합 언어 감독으로 학습된다. -->
 
 ---
 
@@ -61,9 +61,9 @@ CVD는 시각 입력을 의미상 구별되는 두 요인으로 분할하되, �
 
 ---
 
-## 3.2 VAD 3-스트림 인스턴스화 (Three-Stream Instantiation for VAD)
+## 3.2 VAU 3-스트림 인스턴스화 (Three-Stream Instantiation for VAU)
 
-CVD를 VAD에 인스턴스화하면, 외형(Appearance)·동적(Dynamic)·정적(Static)의 세 스트림으로 구성된 모델 CERBERUS를 얻는다. 외형 스트림은 원본 프레임 `X_a`를, 동적 스트림은 `X_m = M ⊙ X_a`를, 정적 스트림은 `X_b = (1 − M) ⊙ X_a`를 입력으로 받는다. 전체 프레임워크는 다음과 같이 정의된다.
+CVD를 VAU에 인스턴스화하면, 외형(Appearance)·동적(Dynamic)·정적(Static)의 세 스트림으로 구성된 모델 CERBERUS를 얻는다. 외형 스트림은 원본 프레임 `X_a`를, 동적 스트림은 `X_m = M ⊙ X_a`를, 정적 스트림은 `X_b = (1 − M) ⊙ X_a`를 입력으로 받는다. 전체 프레임워크는 다음과 같이 정의된다.
 
 > `Y = LLaMA( [ P_a(f_a(X_a)), P_m(f_m(X_m)), P_b(f_b(X_b)) ] ⊕ f_t(T) )` --- (6)
 
