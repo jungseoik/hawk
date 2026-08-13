@@ -144,6 +144,57 @@ Respond with JSON only, no prose:
 # 그래서 평가는 "장면을 규정하는 조건"이라는 의미 범주를 명시적 어휘로 고정한다. 이 목록은
 # 결과를 보기 전에 확정했으며, 모델 출력이 아니라 이 연구가 주장하는 대상(노면 상태·기상·
 # 조명·장소 유형)에서 도출했다.
+# 동의어 군집. 같은 장면 조건을 가리키는 표현을 하나로 센다.
+#
+# 없으면 정답 "highway" 에 대해 "freeway" 라고 옳게 바꿔 쓴 모델이 **miss 1 + spurious 1**
+# 을 동시에 받는다 — 유창한 모델이 체계적으로 불리해진다.
+SCENE_SYNONYMS = [
+    {"highway", "freeway", "motorway"},
+    {"corridor", "hallway", "passage"},
+    {"stairs", "staircase", "steps"},
+    {"sidewalk", "pavement", "footpath"},
+    {"street", "road", "roadway"},
+    {"parking", "carpark"},
+    {"night", "nighttime", "nighttime"},
+    {"dark", "dim", "unlit"},
+    {"rain", "rainy", "raining", "downpour"},
+    {"snow", "snowy", "snowing"},
+    {"fog", "foggy", "mist", "misty"},
+    {"wet", "damp", "slick"},
+    {"icy", "ice", "frozen"},
+    {"crowded", "busy", "congested"},
+    {"empty", "deserted", "vacant"},
+]
+
+# 상충 속성쌍. 정답이 한쪽을 말했는데 생성문이 반대쪽을 말했으면 그 클립의 적중은 무효다.
+#
+# 표면형 일치만으로는 정답 "wet road" 와 생성문 "dry road" 에서 `road` 가 적중으로 계산되어,
+# 속성이 정반대인데 점수를 준다.
+SCENE_CONFLICTS = [
+    ({"wet", "damp", "slick", "icy", "ice", "frozen", "flooded", "muddy", "snowy"}, {"dry"}),
+    ({"dark", "dim", "unlit", "night", "nighttime"}, {"bright", "sunny", "daylight", "lit", "illuminated"}),
+    ({"crowded", "busy", "congested"}, {"empty", "deserted", "vacant"}),
+    ({"narrow"}, {"wide"}),
+]
+
+
+def _lemma(w):
+    """가벼운 표제어화. 정답의 형태론이 지표를 좌우하지 않게 한다.
+
+    어휘집은 단수형으로 되어 있어 "roads"·"buildings" 같은 복수형이 통째로 누락되고,
+    그 클립의 gold 집합 자체가 달라진다. 실측에서 786 클립 중 195 건이 이 경우였다.
+    spaCy 를 쓰지 않는 이유는 평가 경로에 파서 의존성을 들이지 않기 위해서다 — 장면
+    어휘는 대부분 규칙적 복수형이라 이 정도로 충분하다.
+    """
+    for suf, rep in (("ies", "y"), ("sses", "ss"), ("shes", "sh"), ("ches", "ch"),
+                     ("xes", "x"), ("ses", "s"), ("s", "")):
+        if len(w) > 3 and w.endswith(suf):
+            cand = w[: -len(suf)] + rep
+            if cand:
+                return cand
+    return w
+
+
 SCENE_LEXICON = {
     # 노면·표면 상태
     "wet", "icy", "snowy", "slippery", "muddy", "dry", "flooded", "gravel", "pavement",
@@ -189,12 +240,39 @@ def scene_word_recall(references, hypotheses, lexicon=None):
     """
     lex = lexicon if lexicon is not None else SCENE_LEXICON
 
+    # 동의어 → 대표어 매핑을 한 번만 만든다.
+    canon = {}
+    for group in SCENE_SYNONYMS:
+        rep = sorted(group)[0]
+        for w in group:
+            canon[w] = rep
+
+    # 소속 판정은 어휘집과 **동의어 구성원 전체**의 합집합에 대해 한다. 어휘집에만
+    # 대조하면 동의어 군에는 있으나 어휘집에 없는 표현("mist")이 정규화되기 전에
+    # 걸러져, 옳게 바꿔 쓴 모델이 오히려 감점된다.
+    vocab = set(lex) | set(canon)
+
     def scene_terms(text):
-        toks = {w.strip(".,;:!?\"'()").lower() for w in text.split()}
-        return toks & lex
+        """장면 어휘를 표제어화·동의어 정규화하여 돌려준다."""
+        out = set()
+        for raw in (text or "").split():
+            w = _lemma(raw.strip(".,;:!?\"'()").lower())
+            if w in vocab:
+                out.add(canon.get(w, w))
+        return out
+
+    def conflicts(gold_raw, said_raw):
+        """정답과 생성문이 상충하는 속성을 말했는지."""
+        for a, b in SCENE_CONFLICTS:
+            if (gold_raw & a and said_raw & b) or (gold_raw & b and said_raw & a):
+                return True
+        return False
+
+    def raw_terms(text):
+        return {_lemma(w.strip(".,;:!?\"'()").lower()) for w in (text or "").split()}
 
     hits = misses = spurious = 0
-    n_ref = 0
+    n_ref = n_conflict = 0
     for ref, hyp in zip(references, hypotheses):
         gold = scene_terms(ref)
         if not gold:              # 정답에 장면 어휘가 없으면 잴 것이 없다
@@ -202,8 +280,13 @@ def scene_word_recall(references, hypotheses, lexicon=None):
         n_ref += 1
         said = scene_terms(hyp)
         hit = gold & said
+        # 속성이 정반대면(젖음↔건조) 장소 명사 적중으로 상쇄되지 않도록 그 클립의
+        # 적중을 무효화한다.
+        if conflicts(raw_terms(ref), raw_terms(hyp)):
+            n_conflict += 1
+            hit = set()
         hits += len(hit)
-        misses += len(gold - said)
+        misses += len(gold - hit)
         spurious += len(said - gold)   # 정답에 없는 장면 어휘를 말한 것
 
     if n_ref == 0:
@@ -215,8 +298,9 @@ def scene_word_recall(references, hypotheses, lexicon=None):
         "n_ref": n_ref,
         "n_gold_words": hits + misses,
         "lexicon_size": len(lex),
+        "n_attribute_conflict": n_conflict,
         # 학습 추출기와 독립임을 결과 파일에 남긴다 — 순환성 지적에 대한 답이다.
-        "extractor": "fixed scene lexicon (independent of the L_BL training extractor)",
+        "extractor": "fixed scene lexicon + light lemmatisation + synonym canonicalisation; attribute-conflicting clips scored 0 (independent of the L_BL training extractor)",
     }
 
 
@@ -232,15 +316,13 @@ def per_clip_metrics(gt, pred, lexicon=None):
     lex = lexicon if lexicon is not None else SCENE_LEXICON
     out = {}
 
-    def toks(s):
-        return {w.strip('.,;:!?"\'()').lower() for w in (s or "").split()}
-
-    gold = toks(gt) & lex
-    if gold:
-        said = toks(pred) & lex
-        out["scene_recall_clip"] = len(gold & said) / len(gold)
-        denom = len(gold & said) + len(said - gold)
-        out["scene_precision_clip"] = (len(gold & said) / denom) if denom else None
+    # 코퍼스 지표(scene_word_recall)와 **같은 정규화**를 쓴다. 둘이 어긋나면 부트스트랩이
+    # 재는 양과 표에 싣는 양이 달라진다.
+    single = scene_word_recall([gt or ""], [pred or ""], lexicon=lex)
+    if single.get("n_ref"):
+        out["scene_recall_clip"] = single["recall"]
+        pr = single.get("precision")
+        out["scene_precision_clip"] = pr if isinstance(pr, float) and pr == pr else None
     else:
         out["scene_recall_clip"] = None
         out["scene_precision_clip"] = None
