@@ -65,20 +65,20 @@ def align_prev_frame(prev_gray, cur_gray):
     pts_prev = cv2.goodFeaturesToTrack(prev_gray, maxCorners=600, qualityLevel=0.01,
                                        minDistance=8, blockSize=7)
     if pts_prev is None or len(pts_prev) < 20:
-        return None
+        return None, None
     pts_cur, status, _ = cv2.calcOpticalFlowPyrLK(prev_gray, cur_gray, pts_prev, None)
     if pts_cur is None:
-        return None
+        return None, None
     ok = status.ravel() == 1
     if ok.sum() < 20:
-        return None
+        return None, None
     a, inl = cv2.estimateAffinePartial2D(pts_prev[ok], pts_cur[ok],
                                          method=cv2.RANSAC, ransacReprojThreshold=2.0)
     if a is None or inl is None or int(inl.sum()) < 15:
-        return None
+        return None, None
     h, w = prev_gray.shape
     return cv2.warpAffine(prev_gray, a, (w, h), flags=cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_REPLICATE)
+                          borderMode=cv2.BORDER_REPLICATE), a
 
 
 def probe(rec):
@@ -86,6 +86,10 @@ def probe(rec):
     import cv2
     import decord
     n_align_fail = [0]
+
+    def flow_ratio(prev, cur):
+        f = cv2.calcOpticalFlowFarneback(prev, cur, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        return float((np.linalg.norm(f, axis=-1) > MAG_THRESHOLD).mean())
     path = os.path.join(VIDEOS, rec["video"])
     try:
         vr = decord.VideoReader(path, num_threads=1)
@@ -95,25 +99,36 @@ def probe(rec):
         idx = [int(n * (i + 0.5) / N_FRAMES) for i in range(N_FRAMES)]
         idx = [min(max(i, 1), n - 1) for i in idx]
 
-        raw, corr = [], []
+        raw, corr, ident = [], [], []
         for i in idx:
             a = cv2.cvtColor(vr[i - 1].asnumpy(), cv2.COLOR_RGB2GRAY)
             b = cv2.cvtColor(vr[i].asnumpy(), cv2.COLOR_RGB2GRAY)
-            flow = cv2.calcOpticalFlowFarneback(a, b, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-            mag = np.linalg.norm(flow, axis=-1)
-            raw.append(float((mag > MAG_THRESHOLD).mean()))
+            r0 = flow_ratio(a, b)
+            raw.append(r0)
 
-            warped = align_prev_frame(a, b)
+            warped, M = align_prev_frame(a, b)
             if warped is None:
-                corr.append(float((mag > MAG_THRESHOLD).mean()))   # 정렬 실패 → 원본과 동일
+                corr.append(r0)
+                ident.append(r0)
                 n_align_fail[0] += 1
             else:
-                flow2 = cv2.calcOpticalFlowFarneback(warped, b, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-                mag2 = np.linalg.norm(flow2, axis=-1)
-                corr.append(float((mag2 > MAG_THRESHOLD).mean()))
+                corr.append(flow_ratio(warped, b))
+                # ── 통제: 두 프레임을 **같은 변환**으로 warp ────────────────────
+                # 상대 운동은 보존되고 보간만 양쪽에 동일하게 걸리므로, 원본 대비
+                # 증가분은 전부 보간 아티팩트다. 정렬 조건에서 이 값을 빼면
+                # 보간을 제외한 순효과가 남는다.
+                #
+                # 항등 행렬 통제는 쓰지 않는다 — 정확한 항등은 정수 화소 대응이라
+                # 보간을 아예 건너뛰므로 아티팩트가 0 으로 나오고 통제가 되지 않는다
+                # (실제로 그렇게 측정되어 잘못된 안심을 준 적이 있다).
+                h, w = a.shape
+                bw = cv2.warpAffine(b, M, (w, h), flags=cv2.INTER_LINEAR,
+                                    borderMode=cv2.BORDER_REPLICATE)
+                ident.append(flow_ratio(warped, bw))
 
         return {"video": rec["video"], "dataset": rec["video"].split("/")[0],
                 "mask_raw": float(np.mean(raw)), "mask_corrected": float(np.mean(corr)),
+                "mask_bothwarp": float(np.mean(ident)),
                 "align_failed_frames": n_align_fail[0], "n_frames": len(raw)}
     except Exception as exc:
         return {"video": rec["video"], "error": str(exc)[:80]}
@@ -156,22 +171,33 @@ def main():
                 print(f"  {i}/{len(targets)} (실패 {failed})")
 
     print(f"\n완료 {len(results)}, 실패 {failed}\n")
-    print(f"{'데이터셋':<14}{'n':>4}{'보정 전':>10}{'보정 후':>10}{'변화':>10}")
+    print(f"{'데이터셋':<14}{'n':>4}{'보정 전':>9}{'양쪽warp':>10}{'보정 후':>9}"
+          f"{'아티팩트':>10}{'순효과':>10}{'95% CI':>20}")
     summary = {}
     for ds in args.datasets:
         vals = [r for r in results if r["dataset"] == ds]
         if not vals:
             continue
-        a = float(np.mean([v["mask_raw"] for v in vals]))
-        b = float(np.mean([v["mask_corrected"] for v in vals]))
-        summary[ds] = {"n": len(vals), "raw": a, "corrected": b, "delta": b - a}
-        print(f"{ds:<14}{len(vals):>4}{a:>10.3f}{b:>10.3f}{b - a:>+10.3f}")
+        a = np.array([v["mask_raw"] for v in vals])
+        i0 = np.array([v["mask_bothwarp"] for v in vals])
+        b = np.array([v["mask_corrected"] for v in vals])
+        # 순효과 = (보정 후 − 항등). 항등이 아티팩트의 기준선이므로 이를 감산한다.
+        net = b - i0
+        art = i0 - a
+        se = float(net.std(ddof=1) / np.sqrt(len(net))) if len(net) > 1 else float("nan")
+        lo, hi = float(net.mean() - 1.96 * se), float(net.mean() + 1.96 * se)
+        summary[ds] = {"n": len(vals), "raw": float(a.mean()), "bothwarp": float(i0.mean()),
+                       "corrected": float(b.mean()), "artifact": float(art.mean()),
+                       "net_effect": float(net.mean()), "net_se": se,
+                       "net_ci95": [lo, hi]}
+        print(f"{ds:<14}{len(vals):>4}{a.mean():>9.3f}{i0.mean():>9.3f}{b.mean():>9.3f}"
+              f"{art.mean():>+10.3f}{net.mean():>+10.3f}   [{lo:+.3f}, {hi:+.3f}]")
 
     print("\n해석:")
-    print("  보정 후 마스크 비율이 크게 낮아지면, 화면 전체를 동적으로 만들던 성분이")
-    print("  자기 운동이었다는 뜻이고 정적 스트림이 되살아난다 → ④ 를 실행할 근거.")
-    print("  거의 변하지 않으면 대시캠의 높은 비율이 실제 전경 운동에서 온 것이므로,")
-    print("  ④ 는 문제를 풀지 못한다 → 예산을 다른 곳에 쓰는 편이 낫다.")
+    print("  **순효과 = 보정 후 − 항등**이 판정 대상이다. 항등 통제는 참 효과가 0 인 조건이므로,")
+    print("  거기서 나오는 증가분(아티팩트 열)은 리샘플링이 만든 인공 운동이다.")
+    print("  순효과의 CI 가 0 을 포함하거나 양수면 자기 운동 제거 효과가 없다는 뜻이고,")
+    print("  뚜렷한 음수면 정적 스트림이 되살아난다는 뜻이다.")
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
