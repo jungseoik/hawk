@@ -269,3 +269,60 @@ print(f'출력 {sum(tot.values())}개 중 NaN {sum(nan.values())}개')
 EOF
 ```
 
+---
+
+## random_mask arm 중단과 러너의 실패 미감지 (2026-08-13)
+
+`abl_random_mask` 가 **epoch 5, iteration 320 부근**에서 다음과 같이 죽었다.
+
+```
+RuntimeError: DataLoader worker (pid 3751766) is killed by signal: Killed.
+[ablation] arm=random_mask 종료 (exit 1)
+[ablation] arm=duplicate 시작              ← 러너가 실패를 무시하고 진행
+```
+
+**자원 문제가 아니다.** 사후 확인: RAM 2,015GB 중 1,898GB 여유, `/dev/shm` 64GB(사용
+276KB), GPU 46.8/81.6GB. 같은 데이터로 `flow` 는 40 epoch 완주했고 `duplicate` 는 문제없이
+진행 중이다. 일시적 메모리 스파이크로 보이며 재현되지 않았다.
+
+**복구 가능.** `checkpoint_4.pth` 에 `model`·`optimizer`·`scaler`·`epoch` 이 모두 있어
+epoch 5 부터 이어갈 수 있다(`train_run.sh` 가 최신 체크포인트를 자동으로 찾아
+`resume_ckpt_path` 로 넘긴다).
+
+### 러너의 결함과 대응
+
+`run_ablation_arms.sh` 는 `train_run.sh` 의 종료 코드를 확인하지 않는다. arm 하나가 5 epoch
+에서 죽어도 다음 arm 으로 넘어가므로, **동일 예산 통제가 조용히 깨진다.**
+
+실행 중인 스크립트는 편집하지 않았다 — bash 는 스크립트를 바이트 오프셋으로 읽으므로
+진행 중 파일을 고치면 남은 부분을 잘못 해석한다. 대신 `run_ablation_followup.sh` 를 새로
+두고, 완료 epoch 수를 확인해 목표에 못 미치면 재시도하도록 했다.
+
+### 검증하려다 실제 학습을 띄운 사고
+
+`ABL_ARMS="" bash scripts/run_ablation_followup.sh` 로 "arm 없이 상태만 보자"고 실행했는데
+학습이 시작되어 `duplicate` 와 GPU 를 다투었다. 원인은 `${ABL_ARMS:-기본값}` 의 `:-` 가
+**빈 문자열도 기본값으로 치환**한다는 점이다. 즉시 종료하여 피해는 없었다(`duplicate`
+정상 진행, `random_mask` 체크포인트·로그 불변).
+
+세 가지 안전장치를 넣었다.
+
+| 장치 | 효과 |
+|---|---|
+| `--check` 플래그 | 상태만 출력하고 종료. 검증 시 학습이 시작될 수 없다 |
+| `${ABL_ARMS-...}` (`:` 제거) | 빈 문자열을 "arm 없음"으로 존중 |
+| 실행 중 프로세스 감지 | 다른 절제 학습이 있으면 거부(`ABL_FORCE=1` 로만 무시) |
+
+### 남은 일정
+
+```
+flow          40/40  완주
+random_mask    5/40  재개 필요
+duplicate     12/40  진행 중
+zero           0/40  대기
+flow_reinit    0/40  대기
+```
+
+`zero` 종료 후 `bash scripts/run_ablation_followup.sh` 로 `random_mask` 재개 +
+`flow_reinit` 실행. 약 144 epoch × 75분 ≈ 7.5일.
+
