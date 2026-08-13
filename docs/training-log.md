@@ -326,3 +326,58 @@ flow_reinit    0/40  대기
 `zero` 종료 후 `bash scripts/run_ablation_followup.sh` 로 `random_mask` 재개 +
 `flow_reinit` 실행. 약 144 epoch × 75분 ≈ 7.5일.
 
+---
+
+## duplicate arm 발산 (2026-08-13)
+
+`abl_duplicate` 가 **epoch 16, iteration 1430 부근에서 발산**했다. 이전의 산발적 NaN 과 성격이
+전혀 다르다.
+
+```
+epoch 15 까지 : middleloss 0.0001, 정상
+epoch 16      : iteration ~1430 이후 totalloss·oriloss·middleloss 전부 nan (출력 250 중 116)
+epoch 17      : 시작부터 전부 nan
+```
+
+**모델이 죽었다.** `checkpoint_16.pth` 의 학습 파라미터 **231개 중 193개가 비유한**이다
+(`llama_proj_0.weight`, `video_query_tokens_*` 등). 전수 스캔 결과 **epoch 15 가 마지막 정상
+체크포인트**다(13·14·15 전부 0/231).
+
+**회복 불가.** AMP GradScaler 는 NaN 손실에서 옵티마이저 스텝을 건너뛰는데, 가중치가 이미
+NaN 이면 모든 forward 가 NaN 이고 모든 스텝이 건너뛰어진다. 스스로 빠져나올 경로가 없다.
+따라서 계속 두는 것은 순수한 낭비이며(arm 당 약 2일), 중단했다. 러너는 다음 arm(`zero`)으로
+진행했다.
+
+### 이전 NaN 과의 구별
+
+| | 산발적 NaN (flow arm) | 발산 (duplicate arm) |
+|---|---|---|
+| iteration NaN 비율 | 0.014% (7,032 중 1) | **46%** (250 중 116), 이후 100% |
+| 지속성 | 단발, 다음 iteration 정상 | 시작 후 되돌아오지 않음 |
+| 가중치 | 전부 유한 | **193/231 비유한** |
+| epoch 평균이 NaN 인 이유 | 단일 NaN 이 평균을 오염 | 실제로 전부 NaN |
+
+**새 감시 기준이 이것을 잡았다.** "연속 3 epoch NaN" 기준은 두 경우를 구별하지 못했으나,
+교체한 기준(iteration NaN 비율 > 1% · 체크포인트 비유한 파라미터)은 발산만 발동했다.
+
+### 원인 미확정
+
+epoch 16 전까지 `middleloss` 가 0.0001 → 0.0003 으로 움직이기 시작했고(정류점 이탈의 초기
+신호), 그 직후 발산했다. `flow` arm 에서도 epoch 28 에 이탈이 있었으나 발산하지 않고
+회복했다. 두 사건이 같은 기제인지, `duplicate` 의 정적 입력(원본 프레임 복제)이 이탈을 더
+불안정하게 만드는지는 확정하지 못했다.
+
+**표현 손실을 끄면 이 실패 양식이 사라질 가능성이 높다.** 논문은 `L_sim`·`L_dis` 를 기여로
+주장하지 않으므로 `t_1 = t_4 = 0` 으로 두는 데 손실이 없고, 통제 실험에서 켜 둘 이유도 없다.
+재실행 시 이 설정을 검토할 것.
+
+### 남은 상태
+
+```
+flow         40/40  완주
+random_mask   5/40  OOM kill (checkpoint_4 에서 재개 가능)
+duplicate    17/40  발산 (checkpoint_15 에서 재개 가능)
+zero          0/40  진행 시작 2026-08-13 22:23
+flow_reinit   0/40  대기
+```
+
