@@ -218,6 +218,44 @@ def scene_word_recall(references, hypotheses, lexicon=None):
     }
 
 
+def per_clip_metrics(gt, pred, lexicon=None):
+    """클립 하나에 대한 점수. arm 간 쌍 부트스트랩이 이 값을 리샘플 단위로 쓴다.
+
+    코퍼스 전체에 대한 집계값만 저장하면 조건 간 차이의 신뢰구간을 낼 수 없다 —
+    부트스트랩은 클립을 다시 뽑아야 하고, 그러려면 클립마다 점수가 있어야 한다.
+    Scene-word Recall 은 원래 단어 단위 micro-average 이므로, 클립 단위 값은 그 클립의
+    정답에 있는 장면 어휘 중 몇 개를 맞혔는지로 정의한다(정답에 장면 어휘가 없으면
+    None — 그 클립은 이 지표의 표본이 아니다).
+    """
+    lex = lexicon if lexicon is not None else SCENE_LEXICON
+    out = {}
+
+    def toks(s):
+        return {w.strip('.,;:!?"\'()').lower() for w in (s or "").split()}
+
+    gold = toks(gt) & lex
+    if gold:
+        said = toks(pred) & lex
+        out["scene_recall_clip"] = len(gold & said) / len(gold)
+        denom = len(gold & said) + len(said - gold)
+        out["scene_precision_clip"] = (len(gold & said) / denom) if denom else None
+    else:
+        out["scene_recall_clip"] = None
+        out["scene_precision_clip"] = None
+
+    # BLEU-1 을 클립 단위로 근사한다(pycocoevalcap 은 코퍼스 단위라 클립별로 부르면
+    # 짧은 문장에서 brevity penalty 가 불안정하다). 단어 unigram precision 을 쓴다.
+    g, pr = (gt or "").lower().split(), (pred or "").lower().split()
+    if g and pr:
+        from collections import Counter
+        cg, cp = Counter(g), Counter(pr)
+        match = sum(min(cp[w], cg[w]) for w in cp)
+        out["bleu1_clip"] = match / len(pr)
+    else:
+        out["bleu1_clip"] = None
+    return out
+
+
 def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, verbose=True):
     """GPT-guided 3종을 외부 LLM 판정자로 매긴다.
 
@@ -387,6 +425,7 @@ def run_eval(args):
                 "question": qa[0]["q"] if qa else None,
                 "gt_answer": qa[0]["a"] if qa else None,
                 "pred_answer": answer,
+                **per_clip_metrics(sample.get("description", ""), description),
             })
         except Exception as exc:
             failures += 1
