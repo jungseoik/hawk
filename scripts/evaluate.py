@@ -396,6 +396,34 @@ def generate_one(chat, video_path, question, max_new_tokens, num_beams, ablation
 
 
 # ---------------------------------------------------------------------------
+# 이 크기를 넘는 비디오는 평가에서 제외한다.
+#
+# UCF-Crime 에는 untrimmed 원본이 섞여 있어 8.3GB·976,503 프레임짜리도 있다. decord 가
+# 이런 파일의 인덱스를 만들 때 메모리를 크게 잡고, 다른 작업과 겹치면 프로세스가 SIGKILL
+# 로 죽는다(실제로 평가 한 건이 이 파일에서 오류 메시지 없이 종료됐고, 학습의 DataLoader
+# worker OOM 도 같은 원인일 가능성이 크다).
+#
+# 해당 클립은 heldout 471건 중 2건(0.4%), train 7,066건 중 9건(0.1%)뿐이다. 제외 건수를
+# 결과 파일에 기록하여 표본이 조용히 줄지 않게 한다.
+MAX_VIDEO_BYTES = 2 * 2**30
+
+
+def oversized_videos(records, videos_dir):
+    """크기 초과 클립을 골라낸다. (남길 것, 제외된 목록) 을 돌려준다."""
+    keep, dropped = [], []
+    for r in records:
+        p = os.path.join(videos_dir, r["video"])
+        try:
+            if os.path.getsize(p) > MAX_VIDEO_BYTES:
+                dropped.append({"video": r["video"],
+                                "gb": round(os.path.getsize(p) / 2**30, 2)})
+                continue
+        except OSError:
+            pass
+        keep.append(r)
+    return keep, dropped
+
+
 def enforce_determinism(seed=0):
     """생성을 재현 가능하게 만든다.
 
@@ -429,6 +457,12 @@ def run_eval(args):
     enforce_determinism(args.seed)
     with open(args.anno) as f:
         samples = json.load(f)
+    samples, oversized = oversized_videos(samples, args.videos_dir)
+    if oversized:
+        print(f"[eval] 크기 초과로 제외 {len(oversized)}건 "
+              f"(>{MAX_VIDEO_BYTES / 2**30:.0f}GB): "
+              + ", ".join(f"{d['video'].split('/')[-1]} {d['gb']}GB" for d in oversized[:3])
+              + (" …" if len(oversized) > 3 else ""))
     if args.limit:
         samples = samples[: args.limit]
 
@@ -502,6 +536,8 @@ def run_eval(args):
             "anno": args.anno,
             "n_clips": len(records),
             "n_failed": failures,
+            "n_oversized_excluded": len(oversized),
+            "oversized_excluded": oversized,
             "seed": args.seed,
             "decoding": {"do_sample": False, "deterministic": True, "num_beams": args.num_beams,
                          "max_new_tokens": args.max_new_tokens},
