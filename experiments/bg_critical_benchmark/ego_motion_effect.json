@@ -1,0 +1,1317 @@
+{
+  "_meta": {
+    "n_per_dataset": 40,
+    "n_frames": 8,
+    "tau": 0.2,
+    "seed": 20260813,
+    "method": "warp-then-flow: goodFeaturesToTrack + LK + estimateAffinePartial2D(RANSAC), then Farneback on aligned pair"
+  },
+  "summary": {
+    "DoTA": {
+      "n": 40,
+      "raw": 0.38310001966688373,
+      "corrected": 0.3976629672580295,
+      "delta": 0.014562947591145792
+    },
+    "UCF_Crime": {
+      "n": 40,
+      "raw": 0.077687255859375,
+      "corrected": 0.09181713867187499,
+      "delta": 0.014129882812499994
+    },
+    "UBnormal": {
+      "n": 40,
+      "raw": 0.04211287531209844,
+      "corrected": 0.04268145648194188,
+      "delta": 0.0005685811698434434
+    },
+    "ShanghaiTech": {
+      "n": 40,
+      "raw": 0.09401259948160047,
+      "corrected": 0.11112695616725077,
+      "delta": 0.017114356685650298
+    }
+  },
+  "clips": [
+    {
+      "video": "DoTA/Video/UKBuDqU8qTM_000481_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5147545030381944,
+      "mask_corrected": 0.5338682725694445,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/kVhgFPPG-wo_006087_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5551547580295139,
+      "mask_corrected": 0.5615767415364583,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/uFwnmh0GpBo_004369_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.4729905870225694,
+      "mask_corrected": 0.5167724609375,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/t4Cvbdtebk0_003096_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.17351114908854165,
+      "mask_corrected": 0.17518961588541665,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/hdOtS-BpUPY_003210_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.366168212890625,
+      "mask_corrected": 0.3853740776909722,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/OPj7lUQOre8_001801_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5504966905381945,
+      "mask_corrected": 0.5371040852864584,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/yhtzAKqRyXw_005208_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.33833604600694445,
+      "mask_corrected": 0.32273952907986114,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/F9-aR2Ocso4_001309_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5342180718315972,
+      "mask_corrected": 0.5320076497395834,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/LfKfK4I5RPE_000632_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.6630723741319444,
+      "mask_corrected": 0.6279420301649306,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/Hkui6PJboFg_005752_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.32303466796874997,
+      "mask_corrected": 0.34834771050347224,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/5vKPYV5w6pw_003767_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.6640562608506944,
+      "mask_corrected": 0.675,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/LfKfK4I5RPE_002396_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.13517116970486112,
+      "mask_corrected": 0.135098876953125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/uO2zGO5ydBc_001446_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.09791720920138888,
+      "mask_corrected": 0.10178209092881943,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/WWyeuvpHmfc_000937_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.12672268337673612,
+      "mask_corrected": 0.13625827365451387,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/Eq7_uD2yN5Y_004339_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.11361002604166667,
+      "mask_corrected": 0.12799696180555556,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/d2SCftR5sWc_004699_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3107602267795139,
+      "mask_corrected": 0.2761825900607639,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/4K_6s1n6BpU_005561_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5607561577690973,
+      "mask_corrected": 0.5982675509982639,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/RPNiqsdt6-w_001924_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5095248752170138,
+      "mask_corrected": 0.5028719075520833,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/W6YrlYyWguc_005367_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.4028538682725695,
+      "mask_corrected": 0.43563720703125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/4wKjxDXnmYs_003969_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.39813571506076384,
+      "mask_corrected": 0.5085994466145833,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/fb5i7JlmJdg_004722_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5100522189670139,
+      "mask_corrected": 0.5094558376736111,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/HNRS3w5zep8_001261_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3465896267361111,
+      "mask_corrected": 0.3560664876302083,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/Q7VBPeGwJWw_000357_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3044467502170139,
+      "mask_corrected": 0.3119768608940972,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/O9uvBFovKj8_005575_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3715828450520834,
+      "mask_corrected": 0.3877256944444445,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/jv7vz_55H8M_000987_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3419673665364583,
+      "mask_corrected": 0.3667215983072917,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/Izf9l3VWQuo_000331_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.23484903971354165,
+      "mask_corrected": 0.2361357964409722,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/gZbGLa253Ak_000821_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3421660698784722,
+      "mask_corrected": 0.34513047960069443,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/W6YrlYyWguc_004017_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.40912624782986107,
+      "mask_corrected": 0.43921129014756943,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/eN6y6-4C1Rc_003230_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.15173814561631943,
+      "mask_corrected": 0.17439276801215278,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/kVhgFPPG-wo_005100_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.6422900390624999,
+      "mask_corrected": 0.6843806966145833,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/Hx8FMhmdOQU_002333_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.32828138563368053,
+      "mask_corrected": 0.35134765625,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/bcpfYpmDcp0_002436_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.4710692003038195,
+      "mask_corrected": 0.49787177191840276,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/d2SCftR5sWc_000611_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3842922634548611,
+      "mask_corrected": 0.4165837944878472,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/nHvTqyRntbY_002461_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.2089279513888889,
+      "mask_corrected": 0.22986138237847223,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/HzVbo46kkBA_001622_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.6590086534288194,
+      "mask_corrected": 0.6885922580295138,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/kN-2mc561GY_004496_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.13817857530381944,
+      "mask_corrected": 0.14649671766493055,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos066_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.04630859375,
+      "mask_corrected": 0.05101888020833334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Shoplifting029_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.05836100260416667,
+      "mask_corrected": 0.05418131510416666,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Assault027_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.010987955729166667,
+      "mask_corrected": 0.011282552083333333,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos470_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.0746728515625,
+      "mask_corrected": 0.11279134114583332,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos071_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.099921875,
+      "mask_corrected": 0.3543033854166667,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Burglary022_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.12682454427083334,
+      "mask_corrected": 0.13598958333333333,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Stealing063_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.030808919270833336,
+      "mask_corrected": 0.030426432291666666,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos748_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.0030615234375,
+      "mask_corrected": 0.0030615234375,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Arrest012_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.31696777343750004,
+      "mask_corrected": 0.4225830078125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos933_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.008847656249999999,
+      "mask_corrected": 0.008790690104166667,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos076_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.08066569010416667,
+      "mask_corrected": 0.09692220052083333,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/RoadAccidents066_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.15647786458333335,
+      "mask_corrected": 0.1538330078125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos217_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.034612630208333335,
+      "mask_corrected": 0.034991861979166664,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos392_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.058610026041666666,
+      "mask_corrected": 0.1005126953125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/RoadAccidents062_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.0108154296875,
+      "mask_corrected": 0.010221354166666667,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos063_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.022819010416666667,
+      "mask_corrected": 0.022779947916666664,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Abuse027_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.06031738281250001,
+      "mask_corrected": 0.0598974609375,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos602_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.014051106770833334,
+      "mask_corrected": 0.014641927083333336,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Shooting044_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.0668701171875,
+      "mask_corrected": 0.0654931640625,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos795_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.02718912760416667,
+      "mask_corrected": 0.026780598958333332,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos704_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.009604492187499999,
+      "mask_corrected": 0.009667968749999999,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Fighting019_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.06240885416666666,
+      "mask_corrected": 0.0604296875,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos351_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.019838867187499998,
+      "mask_corrected": 0.021666666666666667,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Robbery018_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.1968310546875,
+      "mask_corrected": 0.19866536458333334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Burglary036_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.06112467447916667,
+      "mask_corrected": 0.0710205078125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Abuse047_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.059934895833333335,
+      "mask_corrected": 0.06381184895833333,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Stealing098_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.12732421875,
+      "mask_corrected": 0.1249658203125,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos257_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.08065755208333333,
+      "mask_corrected": 0.11261393229166666,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Shooting005_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.041824544270833326,
+      "mask_corrected": 0.04827962239583334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Abuse024_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.21843587239583334,
+      "mask_corrected": 0.13874186197916666,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos157_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.0035481770833333337,
+      "mask_corrected": 0.0032714843749999997,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos074_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.08830078125,
+      "mask_corrected": 0.090244140625,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos128_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.051062825520833334,
+      "mask_corrected": 0.05568196614583333,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Explosion005_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.15086751302083334,
+      "mask_corrected": 0.18983235677083332,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Burglary097_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.04700846354166666,
+      "mask_corrected": 0.04632161458333334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos851_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.08909342447916667,
+      "mask_corrected": 0.09080240885416668,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Normal_Videos591_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.037900390625,
+      "mask_corrected": 0.03730305989583334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/yr0gNIxRluE_004882_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3681281195746528,
+      "mask_corrected": 0.36327473958333334,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/RoadAccidents127_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.05936360677083333,
+      "mask_corrected": 0.10721842447916669,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Abuse020_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.13934733072916666,
+      "mask_corrected": 0.16897786458333333,
+      "align_failed_frames": 1,
+      "n_frames": 8
+    },
+    {
+      "video": "UCF_Crime/videos/Shoplifting036_x264.mp4",
+      "dataset": "UCF_Crime",
+      "mask_raw": 0.2538216145833333,
+      "mask_corrected": 0.262666015625,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/4wKjxDXnmYs_002899_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.41340345594618055,
+      "mask_corrected": 0.4252775065104166,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/cfrLchAShxQ_000752_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.5008247884114583,
+      "mask_corrected": 0.5256034342447917,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "DoTA/Video/W6YrlYyWguc_001116_video.mp4",
+      "dataset": "DoTA",
+      "mask_raw": 0.3858327907986111,
+      "mask_corrected": 0.41179484049479165,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene19/abnormal_scene_19_scenario_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.01437077101139601,
+      "mask_corrected": 0.014321247329059828,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene21/normal_scene_21_scenario_8.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.03605541087962963,
+      "mask_corrected": 0.03580168547453704,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene23/abnormal_scene_23_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.01910400390625,
+      "mask_corrected": 0.01913248697916667,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene2/normal_scene_2_scenario_7.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.013631184895833332,
+      "mask_corrected": 0.01365207248263889,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene21/abnormal_scene_21_scenario_6.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.07667516637731481,
+      "mask_corrected": 0.09359067563657408,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene17/abnormal_scene_17_scenario_1.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.02058449074074074,
+      "mask_corrected": 0.020607478137860083,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene11/normal_scene_11_scenario_2_fog.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.012843605324074074,
+      "mask_corrected": 0.012713239734299516,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene9/abnormal_scene_9_scenario_6.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.040621744791666664,
+      "mask_corrected": 0.04056572808159722,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene7/normal_scene_7_scenario_6.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.006123996310763889,
+      "mask_corrected": 0.006102294921875,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene20/abnormal_scene_20_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.08658793885030863,
+      "mask_corrected": 0.08853714554398148,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene22/normal_scene_22_scenario_5.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.2613942840952932,
+      "mask_corrected": 0.26139202353395063,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene3/abnormal_scene_3_scenario_7.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.02223564995659722,
+      "mask_corrected": 0.022234971788194446,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene23/normal_scene_23_scenario_7.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.05055278260030864,
+      "mask_corrected": 0.05047170380015432,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene27/normal_scene_27_scenario_7.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.10044835069444444,
+      "mask_corrected": 0.10091869212962963,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene12/normal_scene_12_scenario_6.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.013184241259795056,
+      "mask_corrected": 0.013072477144866385,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene9/normal_scene_9_scenario_8.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.024131673177083333,
+      "mask_corrected": 0.02417629665798611,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene1/normal_scene_1_scenario1_4.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.047651588220164603,
+      "mask_corrected": 0.047577642746913576,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene1/normal_scene_1_scenario3_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.04513020833333333,
+      "mask_corrected": 0.0451367991255144,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene8/abnormal_scene_8_scenario_8.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.061751708984375,
+      "mask_corrected": 0.06170233832465278,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene29/abnormal_scene_29_scenario_1.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.06472382973251029,
+      "mask_corrected": 0.06451501414609054,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene7/normal_scene_7_scenario_4_fog.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.0069921875,
+      "mask_corrected": 0.006919623480902777,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene11/normal_scene_11_scenario_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.004809530998389694,
+      "mask_corrected": 0.004538892663043479,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene10/abnormal_scene_10_scenario_9.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.03285725911458333,
+      "mask_corrected": 0.036017523871527776,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene5/normal_scene_5_scenario_7.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.009362114800347222,
+      "mask_corrected": 0.00936102973090278,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene2/abnormal_scene_2_scenario_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.007051323784722223,
+      "mask_corrected": 0.007069634331597222,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene11/normal_scene_11_scenario_4_fog.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.02437459113325282,
+      "mask_corrected": 0.02438827244363929,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene18/normal_scene_18_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.025211387602880657,
+      "mask_corrected": 0.0251660558127572,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene6/normal_scene_6_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.02345879448784722,
+      "mask_corrected": 0.023282470703125,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene8/abnormal_scene_8_scenario_5.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.03568576388888889,
+      "mask_corrected": 0.03584377712673611,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene1/normal_scene_1_scenario2_4.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.07779047710905351,
+      "mask_corrected": 0.07776748971193416,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene11/normal_scene_11_scenario_8.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.03025566752214171,
+      "mask_corrected": 0.030232708081723025,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene4/abnormal_scene_4_scenario_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.005126139322916667,
+      "mask_corrected": 0.005178358289930556,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene13/abnormal_scene_13_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.0077064344618055555,
+      "mask_corrected": 0.0076266818576388885,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/01_0051_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.3272543078271028,
+      "mask_corrected": 0.15496769129672897,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/01_020.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.04466663015965733,
+      "mask_corrected": 0.045712251752336445,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/09_009.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.14868148851246107,
+      "mask_corrected": 0.12123156396028038,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene12/normal_scene_12_scenario_2.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.012529824693590517,
+      "mask_corrected": 0.012483674904560982,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene11/abnormal_scene_11_scenario_2_fog.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.019479040861513686,
+      "mask_corrected": 0.019551378824476648,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/01_0056_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.05883074133566978,
+      "mask_corrected": 0.05537839515186916,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene17/normal_scene_17_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.028429623199588475,
+      "mask_corrected": 0.028629115226337445,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene7/abnormal_scene_7_scenario_2_smoke.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.004837239583333333,
+      "mask_corrected": 0.004829644097222223,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/04_020.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.0338718117211838,
+      "mask_corrected": 0.03974396417445483,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/05_038.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.1233611395054517,
+      "mask_corrected": 0.19035606503115265,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/11_002.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.1568061234423676,
+      "mask_corrected": 0.15702151479750778,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene7/normal_scene_7_scenario_2_fog.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.008585069444444444,
+      "mask_corrected": 0.008525526258680556,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/10_0074_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.05612861419392524,
+      "mask_corrected": 0.05532424308800623,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene22/abnormal_scene_22_scenario_8.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.29455204716435185,
+      "mask_corrected": 0.2966958128375772,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/04_012.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.021293017426012462,
+      "mask_corrected": 0.023050221475856697,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "UBnormal/Scene7/normal_scene_7_scenario_3.mp4",
+      "dataset": "UBnormal",
+      "mask_raw": 0.007617865668402777,
+      "mask_corrected": 0.006928575303819445,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/05_052.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.17039768302180686,
+      "mask_corrected": 0.2849058727609034,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/06_0147_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.04612265138239876,
+      "mask_corrected": 0.046180454147196265,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/04_0046_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.12900329779984424,
+      "mask_corrected": 0.11004885854750779,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/06_003.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.06070142133956386,
+      "mask_corrected": 0.060543832749221184,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/02_001.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.08399715245327102,
+      "mask_corrected": 0.08400840878115265,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/01_064.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.07445665401090343,
+      "mask_corrected": 0.08415869596962616,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/09_001.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.14033476927570093,
+      "mask_corrected": 0.129962519470405,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/05_006.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.24755463882398754,
+      "mask_corrected": 0.14803440177180685,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/01_0030_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.036003212616822426,
+      "mask_corrected": 0.03566704390576324,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/01_0136_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.13681549357476636,
+      "mask_corrected": 0.28034371349299064,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/08_044.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.05642979702102804,
+      "mask_corrected": 0.10433672848520249,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/06_019.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.0584364656347352,
+      "mask_corrected": 0.06559944509345794,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/01_041.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.16326269227024923,
+      "mask_corrected": 0.15067781347352024,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/04_019.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.03852767231308411,
+      "mask_corrected": 0.04923000632788162,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/06_006.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.05698896271417446,
+      "mask_corrected": 0.05754052278037383,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/11_004.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.03152076031931464,
+      "mask_corrected": 0.03147025895638629,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/03_0031_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.06989327784267912,
+      "mask_corrected": 0.06859149873442369,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/12_001.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.03526485835280374,
+      "mask_corrected": 0.07716547410436138,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/05_063.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.09392432096962616,
+      "mask_corrected": 0.12809549016744548,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/12_0152_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.0793017426012461,
+      "mask_corrected": 0.08134278864875388,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/08_015.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.1535737319898754,
+      "mask_corrected": 0.3726577711253894,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/01_008.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.057320263823987534,
+      "mask_corrected": 0.16183253017912774,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/01_033.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.11281730675623053,
+      "mask_corrected": 0.16269196602414332,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/04_013.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.06252859715732087,
+      "mask_corrected": 0.14621726538161994,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/06_002.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.06104762947819316,
+      "mask_corrected": 0.09871160679517132,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/05_0022_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.06787504867601246,
+      "mask_corrected": 0.0618991554711838,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/08_007.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.05184451664719626,
+      "mask_corrected": 0.05785691686137072,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/10_008.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.062423031055295945,
+      "mask_corrected": 0.047752689349688474,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/testing/videos/02_0128_video.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.09875480675623054,
+      "mask_corrected": 0.12185157466900312,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/05_013.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.10300817757009345,
+      "mask_corrected": 0.14373357184579438,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    },
+    {
+      "video": "ShanghaiTech/training/videos/11_009.mp4",
+      "dataset": "ShanghaiTech",
+      "mask_raw": 0.14947947089174457,
+      "mask_corrected": 0.14918345989096574,
+      "align_failed_frames": 0,
+      "n_frames": 8
+    }
+  ]
+}
