@@ -46,6 +46,13 @@ def get_tb_writer():
     logging.info("TensorBoard logging to {}".format(log_dir))
     return _tb_writer
 
+# 표현 손실(L_sim, L_dis)의 가중치. 환경변수로 덮어쓴다.
+#
+# 태스크 객체가 설정을 보관하지 않아 config 로 내려보낼 경로가 없으므로 환경변수를 쓴다.
+# 값은 학습 시작 시 로그에 찍히므로 사후에 어떤 값으로 돌았는지 확인할 수 있다.
+REPR_LOSS_WEIGHT = float(os.environ.get("CERBERUS_REPR_LOSS_WEIGHT", "0.1"))
+
+
 class BaseTask:
     def __init__(self, **kwargs):
         super().__init__()
@@ -142,6 +149,8 @@ class BaseTask:
         log_freq=5,
         accum_grad_iters=1,
     ):
+        logging.info(f"[cerberus] REPR_LOSS_WEIGHT = {REPR_LOSS_WEIGHT} "
+                     f"(L_sim/L_dis 가중치; 0 이면 두 항이 기울기를 주지 않는다)")
         return self._train_inner_loop(
             epoch=epoch,
             iters_per_epoch=lr_scheduler.iters_per_epoch,
@@ -269,7 +278,27 @@ class BaseTask:
             mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
             mse_loss_bg = (1 + mse_loss_bg) / 2
 
-            loss = loss_dict["loss"] + 0.1 * loss_dict["loss_motion"] + 0.1 * loss_dict["loss_background"] + 0.1 * mse_loss + 0.1 * mse_loss_bg
+            # 표현 손실(`mse_loss`=L_sim, `mse_loss_bg`=L_dis)의 가중치는 설정에서 읽는다.
+            #
+            # 기본값은 기존 동작(0.1)을 유지하되, 절제 실험은 **0 으로 두고 실행한다.**
+            # 이유가 두 가지다.
+            #
+            # 1. **통제가 깨진다.** 두 항은 `cos = ±1` 정류점에 갇혀 기울기를 주지 않다가
+            #    장기 학습에서 이탈하는데, 그 시점이 arm 마다 다르다. `flow` arm 은 epoch
+            #    28 에 이탈해 마지막 12 epoch 을 활성 상태로 학습했고 다른 arm 은 그
+            #    지점에 도달조차 하지 않았다. 그러면 arm 간 차이가 "정적 스트림 내용"이
+            #    아니라 "표현 손실의 활성 여부"에도 귀속된다.
+            # 2. **학습을 죽인다.** `duplicate` arm 은 이탈 직후 epoch 16 에서 발산했고
+            #    체크포인트의 학습 파라미터 231 개 중 193 개가 비유한이 되었다. GradScaler
+            #    는 NaN 손실에서 스텝을 건너뛰므로 회복 경로가 없다.
+            #
+            # 논문은 이 두 항을 기여로 주장하지 않으므로(Appendix A) 0 으로 두는 데 잃는
+            # 것이 없다. 통제 실험에서 켜 둘 이유도 없다.
+            loss = (loss_dict["loss"]
+                    + 0.1 * loss_dict["loss_motion"]
+                    + 0.1 * loss_dict["loss_background"]
+                    + REPR_LOSS_WEIGHT * mse_loss
+                    + REPR_LOSS_WEIGHT * mse_loss_bg)
 
             # after_train_step()
             if use_amp:
