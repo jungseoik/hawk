@@ -31,6 +31,8 @@ import json
 import os
 import re
 import sys
+
+import torch
 import time
 
 ROOT = os.environ.get("CERBERUS_ROOT", "/home/work/seoik")
@@ -394,7 +396,37 @@ def generate_one(chat, video_path, question, max_new_tokens, num_beams, ablation
 
 
 # ---------------------------------------------------------------------------
+def enforce_determinism(seed=0):
+    """생성을 재현 가능하게 만든다.
+
+    `do_sample=False` 만으로는 부족하다. GPU 커널 일부가 비결정적이고 fp16 에서는 그
+    미세한 차이가 argmax 를 뒤집을 수 있으며, 토큰 하나가 달라지면 이후 생성이 전부
+    갈라진다. 실측에서 같은 체크포인트·같은 클립을 두 번 평가했을 때 **세 클립 전부**
+    다른 문장이 나왔고 그중 하나는 `4 4 4 4 …` 형태로 퇴화했다.
+
+    arm 간 비교는 소수점 둘째 자리 차이를 다투므로, 이 정도 변동이 남아 있으면 어떤
+    결론도 실행 간 잡음과 구별되지 않는다.
+    """
+    import numpy as _np
+    import random as _random
+    _random.seed(seed)
+    _np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # cuBLAS 의 비결정적 GEMM 경로를 막는다. 이 환경변수는 컨텍스트 생성 전에
+    # 설정되어야 하므로 import 직후가 아니라 프로세스 시작 시점에 넣는다.
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except Exception as exc:
+        print(f"[eval] 결정론 알고리즘 강제 실패(계속 진행): {exc}")
+
+
 def run_eval(args):
+    enforce_determinism(args.seed)
     with open(args.anno) as f:
         samples = json.load(f)
     if args.limit:
@@ -470,7 +502,8 @@ def run_eval(args):
             "anno": args.anno,
             "n_clips": len(records),
             "n_failed": failures,
-            "decoding": {"do_sample": False, "num_beams": args.num_beams,
+            "seed": args.seed,
+            "decoding": {"do_sample": False, "deterministic": True, "num_beams": args.num_beams,
                          "max_new_tokens": args.max_new_tokens},
             "describe_prompt": args.describe_prompt,
             "judge": args.judge,
@@ -484,7 +517,16 @@ def run_eval(args):
 
     print(f"\n[eval] 완료 — {args.out}")
     for task, scores in metrics.items():
-        print(f"  {task}: " + "  ".join(f"{k}={v:.4f}" for k, v in scores.items()))
+        # 지표 딕셔너리에는 수치가 아닌 항목도 있다(추출기 이름, 표본 수 등).
+        # 전부 %f 로 찍으려다 문자열에서 죽었던 자리다.
+        def _fmt(k, v):
+            if isinstance(v, float):
+                return f"{k}={v:.4f}"
+            if isinstance(v, int):
+                return f"{k}={v}"
+            return None
+        parts = [s for s in (_fmt(k, v) for k, v in scores.items()) if s]
+        print(f"  {task}: " + "  ".join(parts))
     return 0
 
 
@@ -528,6 +570,8 @@ def main():
     ap.add_argument("--out", default="experiments/out/eval.json")
     ap.add_argument("--limit", type=int, default=0, help="0이면 전체")
     ap.add_argument("--gpu-id", type=int, default=0)
+    ap.add_argument("--seed", type=int, default=0,
+                    help="생성 결정론용 시드. 결과 파일에 기록된다.")
     ap.add_argument("--num-beams", type=int, default=1)
     ap.add_argument("--max-new-tokens", type=int, default=300)
     ap.add_argument("--describe-prompt",
