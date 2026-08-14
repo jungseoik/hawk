@@ -5,20 +5,26 @@
 
 ## 지금 돌고 있는 것
 
-| 작업 | 위치 | 예상 |
-|---|---|---|
-| `flow` ckpt_27 평가 (이탈 전) | `experiments/out/eval_flow_ep27.json` | 2~3시간 |
-| `flow` ckpt_39 평가 (이탈 후) | `experiments/out/eval_flow_ep39.json` | 2~3시간 |
-| 자동 연결 | `scripts/chain_eval_then_v2.sh` | 평가 끝나면 v2 자동 시작 |
-
-확인: `bash scripts/run_ablation_v2.sh --check`
-
-## 다음 (자동)
-
-`scripts/run_ablation_v2.sh` — 5 arm 재실행, **`CERBERUS_REPR_LOSS_WEIGHT=0`**,
-출력 `runs/abl2_*`. arm 당 약 2.1일, 전체 약 10.5일.
+**v2 절제 재실행** — `scripts/run_ablation_v2.sh`, 5 arm, `CERBERUS_REPR_LOSS_WEIGHT=0`,
+출력 `runs/abl2_*`. arm 당 약 2.1일, 전체 약 10.5일 (2026-08-14 07:11 시작).
 
 순서: `flow → zero → random_mask → duplicate → flow_reinit`
+
+확인: `bash scripts/run_ablation_v2.sh --check`
+가중치 확인: `grep -m1 REPR_LOSS_WEIGHT $CERBERUS_ROOT/runs/abl2_flow/train.log`
+
+## 이미 나온 실측 (첫 결과)
+
+`flow` v1 arm 의 이탈 전/후 비교 — 표현 손실이 활성화되면 성능이 떨어진다.
+
+| | ep27 (이탈 전) | ep39 (이탈 후) |
+|---|---|---|
+| Scene-word Recall | **0.4085** | 0.3208 |
+| BLEU-1 | 0.3259 | 0.2866 |
+
+Δ = +0.0920, 95% CI [+0.0564, +0.1276], n = 424 — 구간이 0 을 포함하지 않는다.
+원고 반영: Appendix A.2. **이것이 `t = 0` 재실행의 실증 근거다.**
+결과: `experiments/out/eval_flow_ep{27,39}.json`
 
 ## 왜 재실행하는가 (v1 실패 요약)
 
@@ -60,11 +66,20 @@ $CERBERUS_PY scripts/compare_arms.py $(for a in flow zero random_mask duplicate 
 
 | | 내용 |
 |---|---|
-| W4 | "용량·정규화로 만들 수 없다" 문구 — 분모 정정으로 상당 부분 해소, 잔여 문구 정리 필요 |
-| W8 | §4.2 의 5범주 스키마와 Appendix H.1 의 4범주 공존 — 4범주로 통일 |
-| W11 | Scene-word Recall 표제어화·동의어 미처리 — **결과 나오기 전에 동결할 것** |
+
 | — | Stage-1 재학습 여부 (정렬 결함 근본 해결 + C3 증거 확보를 한 번에) — GPU 예산 결정 |
-| — | 사람 주석자 2인째 (κ 를 사람–사람으로 만들려면 필요) |
+| — | C3 증거 경로: Appendix F(손실 항 누적 절제)를 실행할지, C3 를 기여에서 내릴지 |
+
+## Loop 3 이후 완료한 것
+
+- **가설 형식 제거** — H1~H7 → 발견 서술. 심사자가 찾은 모순 3건 동반 해소
+- **벤치마크 "재사용 가능" 주장 철회** — 라벨은 LLM 생성 + 사람 1인 80건 검증. 그 규모로
+  독립 벤치마크를 주장하면 정작 튼튼한 것들까지 신뢰를 잃는다. 두 번째 주석자도 불필요해짐
+- **Scene-word Recall 편향 3종 보정** (결과 전 동결) — 표제어화, 동의어 15군, 속성 상충
+  무효화. 합성 6케이스 검증
+- **라벨 스키마 4범주로 통일**, `context_critical` → `causal`
+- **부록 A.1·A.2 위치 정정** (Appendix I 뒤에 있었음), 수식 (A.1) → (B.1)
+- **[54]/[55]/[57] 기술 정정** — Barlow Twins ≠ VICReg, RESOUND 은 예측 불가능성이 아니라 최소화
 
 ## 최근에 고친 것 (되돌리지 말 것)
 
