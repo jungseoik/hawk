@@ -6,9 +6,27 @@
 ## 지금 돌고 있는 것
 
 **v2 절제 재실행** — `scripts/run_ablation_v2.sh`, 5 arm, `CERBERUS_REPR_LOSS_WEIGHT=0`,
-출력 `runs/abl2_*`. arm 당 약 2.1일, 전체 약 10.5일 (2026-08-14 07:11 시작).
+출력 `runs/abl2_*` (2026-08-14 07:11 시작).
 
-순서: `flow → zero → random_mask → duplicate → flow_reinit`
+| arm | 상태 |
+|---|---|
+| zero | ✅ 40/40 |
+| flow | 15/40 — 재시도 상한 소진으로 중단. `scripts/finish_flow_arm.sh` 가 큐 종료 후 마저 채운다 |
+| random_mask | 진행 중 |
+| duplicate · flow_reinit | 대기 |
+
+## ⚠ 컨테이너 메모리 제한이 모든 미스터리 사망의 원인이다
+
+```
+/sys/fs/cgroup/memory.max      240 GB   ← `free` 는 호스트 2TB 를 보여준다. 속지 말 것
+/sys/fs/cgroup/memory.events   oom_kill 6
+```
+
+DataLoader worker 가 OOM kill → rank 사망 → NCCL watchdog SIGABRT. 약 5 epoch(6.6시간)마다
+발생한다. **재개는 정상 작동하므로 진행분을 잃지 않는다** — 재시도 상한만 충분하면 된다
+(현재 12). random_mask v1 중단, 평가 2건 실패, flow v2 의 주기적 사망이 전부 이것이다.
+
+확인: `cat /sys/fs/cgroup/memory.events`
 
 확인: `bash scripts/run_ablation_v2.sh --check`
 가중치 확인: `grep -m1 REPR_LOSS_WEIGHT $CERBERUS_ROOT/runs/abl2_flow/train.log`
