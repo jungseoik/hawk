@@ -27,7 +27,13 @@ ABL_GPUS="${ABL_GPUS:-0,1}"
 ABL_NPROC="${ABL_NPROC:-2}"
 ABL_ARMS="${ABL_ARMS-flow zero random_mask duplicate flow_reinit}"
 ABL_TARGET_EPOCH="${ABL_TARGET_EPOCH:-40}"
-ABL_MAX_RETRY="${ABL_MAX_RETRY:-3}"
+# 재시도 상한. 컨테이너 메모리 제한(cgroup `memory.max` = 240GB)에 걸려 DataLoader
+# worker 가 OOM kill 되면 rank 하나가 죽고 NCCL watchdog 가 SIGABRT 로 전체를 내린다.
+# 실측상 약 5 epoch(6.6시간)마다 발생하며, 재개는 체크포인트에서 이어지므로 진행분은
+# 잃지 않는다. 40 epoch 을 채우려면 8 회 안팎이 필요하므로 넉넉히 둔다.
+#
+# 확인: cat /sys/fs/cgroup/memory.events   → oom_kill 카운터가 오르면 이 문제다
+ABL_MAX_RETRY="${ABL_MAX_RETRY:-12}"
 RUNS_ROOT="${CERBERUS_ROOT:-/home/work/seoik}/runs"
 export CERBERUS_REPR_LOSS_WEIGHT="${CERBERUS_REPR_LOSS_WEIGHT:-0}"
 
