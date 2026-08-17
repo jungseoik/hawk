@@ -44,6 +44,12 @@ DataLoader worker 가 OOM kill → rank 사망 → NCCL watchdog SIGABRT. 약 5 
 원고 반영: Appendix A.2. **이것이 `t = 0` 재실행의 실증 근거다.**
 결과: `experiments/out/eval_flow_ep{27,39}.json`
 
+## 설계 결정 — 원본과의 예산 일치는 필수가 아니다 (2026-08-17)
+
+원본 HAWK 의 effective batch·샘플 예산에 맞추는 것은 **요구사항이 아니다.** 필요한 것은
+**arm 끼리 서로 같은 조건**뿐이다. GPU 구성 변경을 검토할 때 "원본과 달라진다"를 반대
+근거로 쓰지 말 것 (루트 `CLAUDE.md` §5 완화 항목 참조).
+
 ## 왜 재실행하는가 (v1 실패 요약)
 
 | arm | v1 결과 |
