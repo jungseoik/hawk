@@ -50,6 +50,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+log "1.7) 서버 환경 (tmux·ble.sh·fzf·vim·git — 전부 휘발성 \$HOME 에 산다)"
+# apt 로 깐 패키지($HOME 밖)도 컨테이너 이미지가 되돌아가므로 매번 다시 깔아야 한다.
+# seoik_skills 의 server-init 은 멱등이라, 이미 갖춰져 있으면 아래 검사에서 건너뛴다.
+SRV="$ROOT/seoik_skills/skills/server-init/scripts/setup_all.sh"
+srv_ready(){
+  command -v tmux >/dev/null 2>&1 && command -v fzf >/dev/null 2>&1 \
+    && command -v gawk >/dev/null 2>&1 && [ -f "$HOME/.local/share/blesh/ble.sh" ] \
+    && grep -q "seoik_skills" ~/.bashrc 2>/dev/null
+}
+if srv_ready; then
+  ok "서버 환경 이미 갖춰짐 (tmux·fzf·ble.sh·bashrc 블록)"
+elif [ -f "$SRV" ]; then
+  echo "     설치 중 — apt + ble.sh 빌드로 1분 내외 걸립니다"
+  if bash "$SRV" --no-conda >/tmp/server-init-bootstrap.log 2>&1; then
+    ok "서버 환경 세팅 완료 (tmux 마우스 스크롤·bash 하이라이팅·Ctrl-R 퍼지 검색)"
+  else
+    bad "서버 환경 일부 실패 — /tmp/server-init-bootstrap.log 및 /tmp/server-init/*.log 확인"
+  fi
+else
+  bad "server-init 없음: $SRV"
+fi
+
+# ---------------------------------------------------------------------------
 log "2) 셸 환경 (~/.bashrc — 세션마다 초기화됨)"
 # 컨테이너가 자체 conda(/home/work/miniconda3)를 base로 활성화하고 envs_dirs를
 # 자기 것으로 고정하므로, `conda run -n cerberus`는 엉뚱한 경로로 풀린다.
@@ -120,3 +143,4 @@ echo
 log "완료. 새 셸에서 적용하려면:  source ~/.bashrc"
 echo "   현황·다음 단계:  $ROOT/README.md   ·   $REPO/docs/training-log.md"
 echo "   이전 대화 이어가기:  claude --continue   (또는 claude --resume 으로 목록 선택)"
+echo "   셸 기능(하이라이팅·Ctrl-R) 적용:  exec bash"
