@@ -3,39 +3,40 @@
 **마지막 갱신 2026-08-18.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## ▶ 이전 완료 — 학습 재개 승인 대기 (2026-08-18 09:40)
+## ▶ 현재 — 학습 정지, GPU 2장으로 축소 예정 (2026-08-18 15:30)
 
-GPU 3장 컨테이너로 옮겼고 환경은 전부 복구됐다. **학습은 아직 시작하지 않았다** (장시간 GPU
-작업은 승인 후 착수).
-
-| 항목 | 실측 |
-|---|---|
-| GPU | H100 80GB **3장** (전부 유휴, 0 MiB) |
-| `memory.max` | **739 GB** (이전 240 GB → 3배). `oom_kill` 0 |
-| CPU / `NPROC` | 84 / **84** (이전 42 — 스크립트 변수 네임스페이스 주의) |
-| 런타임 | torch 2.11.0+cu128 · transformers 4.28.0 |
-| git | 미커밋 0, HEAD `63a8291` |
-| 체크포인트 | stage1 `checkpoint_106.pth` 등 54개, ablation run 보존 |
-
-arm 진행률은 이전 전과 동일하다.
+3 GPU 병렬로 5.4시간 돌린 뒤 정지했다(사용자 요청 — GPU 2장으로 축소).
 
 ```
-     flow         15/40
+     flow         17/40   (+2 이번 실행)
   ✅ zero         40/40
      random_mask  21/40
-     duplicate     0/40
-     flow_reinit   0/40
+     duplicate     2/40   (+2)
+     flow_reinit   2/40   (+2)
 ```
 
-재개 명령 (승인 후):
+### 실측 — 초기 추정이 틀렸다
+
+**epoch 당 83~117분**(2.0~2.8 s/it)이다. 실행 직후 iteration 160 에서 읽은 `1.20 s/it` 로
+"epoch 50분"이라 보고했으나, 그 값은 워밍업 구간이라 대표성이 없었다. 5.4시간 동안 arm 당
+약 3 epoch 을 마쳤으므로 **평균 1.8 h/epoch** 이 실제값이다. 원래 외삽치(1.88 h/epoch)가
+맞았다.
+
+| GPU | 남은 118 epoch 소요 |
+|---|---|
+| 3장 병렬 | 71시간 ≈ **3.0일** |
+| **2장 병렬** | 106시간 ≈ **4.4일** |
+
+2장에서도 **arm 2개 병렬**(`*_1gpu.yaml`, batch 4)이 최선이다 — 한 작업에 2장을 묶으면
+`iters_per_epoch` 고정 때문에 epoch 시간이 그대로다.
+
+재개 명령:
 ```bash
-cd $CERBERUS_ROOT/hawk && bash scripts/run_arms_parallel.sh
+cd $CERBERUS_ROOT/hawk && ARM_GPUS="0 1" bash scripts/run_arms_parallel.sh
 ```
 
-남은 arm 을 GPU 1장씩 병렬로 돌린다 — 2 GPU 순차 6.7일 대신 **3.1일**이며, 완주한
-`zero` 를 다시 돌리지 않는다(단일 GPU batch 4 가 effective batch 4 로 동일).
-이번 웨이브는 GPU 3장 = arm 3개(`duplicate`·`flow_reinit`·`flow` 순 — 남은 epoch 많은 순),
-`random_mask` 는 다음 웨이브. 절차 전체는 `docs/MIGRATION-3GPU.md`.
+남은 epoch 많은 순으로 자동 배정된다(`flow_reinit` 38 · `duplicate` 38 → `flow` 23 ·
+`random_mask` 19 순으로 두 웨이브).
 
 ## 🔁 대화 기록이 이제 영속된다 (2026-08-18)
 
