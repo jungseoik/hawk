@@ -52,6 +52,12 @@ export TORCH_HOME=$CERBERUS_ROOT/cache/torch      # eva_vit_g / blip2 qformer
 export HF_HOME=$CERBERUS_ROOT/cache/hf            # bert-base-uncased, tokenizers
 [ -f $CERBERUS_ROOT/.hf_token ] && export HF_TOKEN=$(cat $CERBERUS_ROOT/.hf_token)
 [ -f $CERBERUS_ROOT/.gemini_token ] && export GEMINI_API_KEY=$(cat $CERBERUS_ROOT/.gemini_token)  # GPT-guided 판정자
+
+# 생성 결정론에 필요하다. `do_sample=False` 만으로는 부족했다 — 일부 CUDA 커널이
+# 비결정적이고 fp16 에서 그 차이가 argmax 를 뒤집으면 이후 토큰이 전부 갈라진다.
+# 실측: 같은 체크포인트·같은 클립을 두 번 평가해 3/3 다른 문장, 하나는 `4 4 4 4 …` 로 퇴화.
+# 이 변수는 CUDA 컨텍스트 생성 **전**에 설정되어야 하므로 셸 환경에 둔다.
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 alias cpy='$CERBERUS_PY'
 alias cdh='cd $CERBERUS_ROOT/hawk'
 # 주의: 컨테이너 자체 conda가 `-n cerberus`를 가로챈다. 반드시 -p 절대경로로:
