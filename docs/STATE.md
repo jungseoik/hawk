@@ -1,12 +1,23 @@
 # 현재 상태 — 세션이 끊겨도 여기부터 읽으면 이어갈 수 있다
 
-**마지막 갱신 2026-08-13.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
+**마지막 갱신 2026-08-18.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## ⏸ 중단됨 — 컨테이너 이전 대기 (2026-08-18)
+## ▶ 이전 완료 — 학습 재개 승인 대기 (2026-08-18 09:40)
 
-학습을 정지하고 GPU 3장 환경으로 옮기는 중이다. **재개 절차는
-`docs/MIGRATION-3GPU.md`** 에 있다.
+GPU 3장 컨테이너로 옮겼고 환경은 전부 복구됐다. **학습은 아직 시작하지 않았다** (장시간 GPU
+작업은 승인 후 착수).
+
+| 항목 | 실측 |
+|---|---|
+| GPU | H100 80GB **3장** (전부 유휴, 0 MiB) |
+| `memory.max` | **739 GB** (이전 240 GB → 3배). `oom_kill` 0 |
+| CPU / `NPROC` | 84 / **84** (이전 42 — 스크립트 변수 네임스페이스 주의) |
+| 런타임 | torch 2.11.0+cu128 · transformers 4.28.0 |
+| git | 미커밋 0, HEAD `63a8291` |
+| 체크포인트 | stage1 `checkpoint_106.pth` 등 54개, ablation run 보존 |
+
+arm 진행률은 이전 전과 동일하다.
 
 ```
      flow         15/40
@@ -16,27 +27,38 @@
      flow_reinit   0/40
 ```
 
-체크포인트는 epoch 마다 저장되므로 진행분을 잃지 않았다(총 76개 보존).
-
-재개:
+재개 명령 (승인 후):
 ```bash
-bash /home/work/seoik/bootstrap_cerberus.sh && source ~/.bashrc
 cd $CERBERUS_ROOT/hawk && bash scripts/run_arms_parallel.sh
 ```
 
 남은 arm 을 GPU 1장씩 병렬로 돌린다 — 2 GPU 순차 6.7일 대신 **3.1일**이며, 완주한
 `zero` 를 다시 돌리지 않는다(단일 GPU batch 4 가 effective batch 4 로 동일).
+이번 웨이브는 GPU 3장 = arm 3개(`duplicate`·`flow_reinit`·`flow` 순 — 남은 epoch 많은 순),
+`random_mask` 는 다음 웨이브. 절차 전체는 `docs/MIGRATION-3GPU.md`.
 
-## ⚠ 컨테이너 메모리 제한이 모든 미스터리 사망의 원인이다
+## 🔁 대화 기록이 이제 영속된다 (2026-08-18)
+
+`~/.claude` 는 컨테이너와 함께 사라지므로 `claude --resume` 목록도 사라졌다. 정본을
+`seoik/claude_state/` 에 두고 `scripts/claude_state_sync.sh` 로 세 겹 보존한다 — 부팅 시
+`--restore`, 5분 주기 데몬 `--save`, 정상 종료 시 `SessionEnd` 훅. 부트스트랩 1.5 단계가
+자동 처리하므로 새 컨테이너에서 `claude --continue` 로 바로 이어갈 수 있다.
+**부트스트랩을 먼저 돌린 다음 claude 를 띄워야 한다** (목록은 실행 시점에 읽힌다).
+과거 세션 5개가 이관돼 실제 재개까지 검증됐다.
+
+## ⚠ 컨테이너 메모리 제한이 모든 미스터리 사망의 원인이었다
 
 ```
-/sys/fs/cgroup/memory.max      240 GB   ← `free` 는 호스트 2TB 를 보여준다. 속지 말 것
-/sys/fs/cgroup/memory.events   oom_kill 6
+/sys/fs/cgroup/memory.max      240 GB   (구 컨테이너)  →  739 GB  (2026-08-18 신 컨테이너)
+/sys/fs/cgroup/memory.events   oom_kill 6              →  0
 ```
 
-DataLoader worker 가 OOM kill → rank 사망 → NCCL watchdog SIGABRT. 약 5 epoch(6.6시간)마다
-발생한다. **재개는 정상 작동하므로 진행분을 잃지 않는다** — 재시도 상한만 충분하면 된다
-(현재 12). random_mask v1 중단, 평가 2건 실패, flow v2 의 주기적 사망이 전부 이것이다.
+`free` 는 호스트 2TB 를 보여준다 — 속지 말고 항상 cgroup 값을 볼 것.
+구 컨테이너에서는 DataLoader worker 가 OOM kill → rank 사망 → NCCL watchdog SIGABRT 가
+약 5 epoch(6.6시간)마다 발생했다. 신 컨테이너는 여유가 3배라 재발 가능성이 낮지만,
+`num_workers` 4 와 재시도 상한 12 는 그대로 둔다(마진만 커진다).
+**재개는 정상 작동하므로 진행분을 잃지 않는다.** random_mask v1 중단, 평가 2건 실패,
+flow v2 의 주기적 사망이 전부 이것이었다.
 
 확인: `cat /sys/fs/cgroup/memory.events`
 

@@ -61,6 +61,27 @@ source ~/.bashrc
 
 **이걸 건너뛰면 `$CERBERUS_PY` 가 비어 모든 학습·평가 명령이 조용히 실패한다.**
 
+### 지난 대화 이어가기
+
+부트스트랩 1.5 단계가 `claude_state_sync.sh --restore` 로 `seoik/claude_state` 의 대화 기록을
+`~/.claude/projects/-home-work-seoik/` 에 되돌린다. 그러면 새 컨테이너에서도
+
+```bash
+cd /home/work/seoik
+claude --continue          # 가장 최근 대화를 그대로 이어감
+claude --resume            # 목록에서 골라 이어감
+```
+
+**순서가 중요하다 — 부트스트랩을 먼저 돌려야 `--resume` 목록에 과거 세션이 보인다.**
+(`--resume` 은 claude 가 뜨는 시점에 기록을 읽으므로, 실행 후에 복원해도 그 회차에는 반영되지 않는다.)
+
+기록 저장은 세 겹이다: 부팅 시 `--restore`, 5분 주기 데몬 `--save`, 정상 종료 시 `SessionEnd` 훅.
+컨테이너가 예고 없이 죽어도 최대 5분 분량만 잃는다. 상태 확인:
+
+```bash
+bash scripts/claude_state_sync.sh --status
+```
+
 확인:
 
 ```bash
@@ -69,6 +90,10 @@ nvidia-smi --query-gpu=index,memory.total --format=csv,noheader   # 3장 확인
 cat /sys/fs/cgroup/memory.max           # 컨테이너 메모리 제한 — 병목이다
 bash $CERBERUS_ROOT/hawk/scripts/run_arms_parallel.sh --check     # arm 진행률
 ```
+
+**2026-08-18 실측 (이전 완료):** GPU H100 80GB **3장**, `memory.max` **739GB**(이전 240GB의 3배),
+CPU 84코어, torch 2.11.0+cu128. arm 진행률은 이전 전과 동일하다 —
+`zero 40/40 · random_mask 21/40 · flow 15/40 · duplicate 0 · flow_reinit 0`.
 
 ---
 
@@ -103,18 +128,22 @@ epoch 시간은 그대로다. arm 을 나눠 병렬로 돌려야 벽시계 시�
 ### 주의 — 병목은 GPU 가 아니라 메모리다
 
 ```
-/sys/fs/cgroup/memory.max      240 GB   (기존 컨테이너 기준)
-/sys/fs/cgroup/memory.events   oom_kill 6
+/sys/fs/cgroup/memory.max      240 GB   (기존 컨테이너)  →  739 GB  (2026-08-18 새 컨테이너)
+/sys/fs/cgroup/memory.events   oom_kill 6 (기존)         →  0       (새 컨테이너, 학습 시작 전)
 ```
+
+새 컨테이너는 여유가 3배다. 그래도 `num_workers` 는 **4 그대로 둔다** — 학습이 compute-bound 라
+(`data:` 지연 실측 0.0000) 올려서 얻을 것이 없고, 재시도 상한 12 와 함께 두면 안전 마진만 커진다.
 
 `free` 는 호스트 값을 보여주므로 속지 말 것. DataLoader worker 가 OOM kill 되면 rank 가
 죽고 NCCL watchdog 가 SIGABRT 를 던진다. **재개는 정상 동작하므로 진행분을 잃지 않으며**,
 러너가 재시도로 감싸 두었다(상한 12).
 
 `*_1gpu.yaml` 은 `num_workers` 를 4 로 낮춰 두었다 — arm 3 개면 워커가 3 배가 되기 때문이다.
-학습은 compute-bound 이므로(`data:` 지연 실측 0.0000) 속도 영향은 없다.
+(2026-08-18 새 컨테이너에서도 이 값 그대로 간다. 위 표 참조.)
 
-새 컨테이너의 메모리 제한이 다르면 `num_workers` 를 조정할 것.
+⚠ `stage2_zero_1gpu.yaml` 은 없다 — `zero` 가 이미 40/40 완주라 러너가 고르지 않기 때문이다.
+`zero` 를 다시 돌려야 할 일이 생기면 다른 arm 파일에서 복사해 만들 것(그냥 실행하면 "config 없음" 으로 멈춘다).
 
 ---
 

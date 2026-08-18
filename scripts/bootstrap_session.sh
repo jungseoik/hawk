@@ -38,6 +38,18 @@ done
 ok "에이전트 $(ls "$CLAUDE_DIR/agents" 2>/dev/null | wc -l)개 / 스킬 $(ls "$CLAUDE_DIR/skills" 2>/dev/null | wc -l)개 연결"
 
 # ---------------------------------------------------------------------------
+log '1.5) 대화 기록 복원 (claude --resume 을 컨테이너 이전 후에도 쓰기 위한 것)'
+# ~/.claude/projects/ 가 세션마다 초기화되면 `--resume` 목록이 비어 버린다.
+# 정본은 $ROOT/claude_state 에 두고, 여기서 되돌린 다음 주기적으로 다시 저장한다.
+SYNC="$REPO/scripts/claude_state_sync.sh"
+if [ -x "$SYNC" ]; then
+  bash "$SYNC" --restore | tail -1
+  bash "$SYNC" --daemon 300 | tail -1
+else
+  bad "claude_state_sync.sh 없음 — 대화 기록이 컨테이너와 함께 사라진다"
+fi
+
+# ---------------------------------------------------------------------------
 log "2) 셸 환경 (~/.bashrc — 세션마다 초기화됨)"
 # 컨테이너가 자체 conda(/home/work/miniconda3)를 base로 활성화하고 envs_dirs를
 # 자기 것으로 고정하므로, `conda run -n cerberus`는 엉뚱한 경로로 풀린다.
@@ -107,3 +119,4 @@ else bad "cerberus env python 없음: $ENV_PY"; fi
 echo
 log "완료. 새 셸에서 적용하려면:  source ~/.bashrc"
 echo "   현황·다음 단계:  $ROOT/README.md   ·   $REPO/docs/training-log.md"
+echo "   이전 대화 이어가기:  claude --continue   (또는 claude --resume 으로 목록 선택)"
