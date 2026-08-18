@@ -3,17 +3,29 @@
 **마지막 갱신 2026-08-13.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## 지금 돌고 있는 것
+## ⏸ 중단됨 — 컨테이너 이전 대기 (2026-08-18)
 
-**v2 절제 재실행** — `scripts/run_ablation_v2.sh`, 5 arm, `CERBERUS_REPR_LOSS_WEIGHT=0`,
-출력 `runs/abl2_*` (2026-08-14 07:11 시작).
+학습을 정지하고 GPU 3장 환경으로 옮기는 중이다. **재개 절차는
+`docs/MIGRATION-3GPU.md`** 에 있다.
 
-| arm | 상태 |
-|---|---|
-| zero | ✅ 40/40 |
-| flow | 15/40 — 재시도 상한 소진으로 중단. `scripts/finish_flow_arm.sh` 가 큐 종료 후 마저 채운다 |
-| random_mask | 진행 중 |
-| duplicate · flow_reinit | 대기 |
+```
+     flow         15/40
+  ✅ zero         40/40
+     random_mask  21/40
+     duplicate     0/40
+     flow_reinit   0/40
+```
+
+체크포인트는 epoch 마다 저장되므로 진행분을 잃지 않았다(총 76개 보존).
+
+재개:
+```bash
+bash /home/work/seoik/bootstrap_cerberus.sh && source ~/.bashrc
+cd $CERBERUS_ROOT/hawk && bash scripts/run_arms_parallel.sh
+```
+
+남은 arm 을 GPU 1장씩 병렬로 돌린다 — 2 GPU 순차 6.7일 대신 **3.1일**이며, 완주한
+`zero` 를 다시 돌리지 않는다(단일 GPU batch 4 가 effective batch 4 로 동일).
 
 ## ⚠ 컨테이너 메모리 제한이 모든 미스터리 사망의 원인이다
 
