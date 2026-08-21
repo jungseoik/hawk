@@ -3,41 +3,29 @@
 **마지막 갱신 2026-08-18.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## ▶ 현재 — GPU 2장 병렬 학습 중 (2026-08-18 16:07 재개)
+## ▶ 현재 — 웨이브 2 진행 중 (2026-08-21 15:53)
 
-GPU 가 2장으로 축소되어 `ARM_GPUS="0 1"` 로 재개했다. 웨이브 1 = `flow_reinit`·`duplicate`,
-웨이브 2 = `flow`·`random_mask`. 완료 예상 8월 23일 (118 epoch ÷ 2 GPU × 1.8h ≈ 4.4일).
+**웨이브 1 완주.** `duplicate`·`flow_reinit` 가 40/40 을 마쳤고 체크포인트가 건강하다
+(비유한 파라미터 0/231, 손실 단조 하강).
 
 ```
-     flow         17/40   (+2 이번 실행)
   ✅ zero         40/40
-     random_mask  21/40
-     duplicate     2/40   (+2)
-     flow_reinit   2/40   (+2)
+  ✅ duplicate    40/40   oriloss 1.2402 → 1.0682
+  ✅ flow_reinit  40/40   oriloss 1.2567 → 0.7255
+  🔄 flow         17/40   (GPU 0)
+  🔄 random_mask  21/40   (GPU 1)
 ```
 
-### 실측 — 초기 추정이 틀렸다
+**주의 — 아직 해석하지 말 것.** `flow_reinit` 의 최종 손실이 `duplicate` 보다 낮지만, 이는
+학습 손실이며 하류 성능이 아니다. 판정은 held-out 평가와 `compare_arms.py` 의 클립 단위 쌍
+부트스트랩으로만 한다(`experiment-roadmap.md` §0 의 S1/S2/S3).
 
-**epoch 당 83~117분**(2.0~2.8 s/it)이다. 실행 직후 iteration 160 에서 읽은 `1.20 s/it` 로
-"epoch 50분"이라 보고했으나, 그 값은 워밍업 구간이라 대표성이 없었다. 5.4시간 동안 arm 당
-약 3 epoch 을 마쳤으므로 **평균 1.8 h/epoch** 이 실제값이다. 원래 외삽치(1.88 h/epoch)가
-맞았다.
-
-| GPU | 남은 118 epoch 소요 |
-|---|---|
-| 3장 병렬 | 71시간 ≈ **3.0일** |
-| **2장 병렬** | 106시간 ≈ **4.4일** |
-
-2장에서도 **arm 2개 병렬**(`*_1gpu.yaml`, batch 4)이 최선이다 — 한 작업에 2장을 묶으면
-`iters_per_epoch` 고정 때문에 epoch 시간이 그대로다.
+남은 42 epoch ÷ 2 GPU × 1.6h ≈ **1.4일**, 완료 예상 **8월 23일**.
 
 재개 명령:
 ```bash
 cd $CERBERUS_ROOT/hawk && ARM_GPUS="0 1" bash scripts/run_arms_parallel.sh
 ```
-
-남은 epoch 많은 순으로 자동 배정된다(`flow_reinit` 38 · `duplicate` 38 → `flow` 23 ·
-`random_mask` 19 순으로 두 웨이브).
 
 ## 🔁 대화 기록이 이제 영속된다 (2026-08-18)
 
