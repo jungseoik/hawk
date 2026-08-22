@@ -3,29 +3,36 @@
 **마지막 갱신 2026-08-18.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## ▶ 현재 — 웨이브 2 진행 중 (2026-08-21 15:53)
-
-**웨이브 1 완주.** `duplicate`·`flow_reinit` 가 40/40 을 마쳤고 체크포인트가 건강하다
-(비유한 파라미터 0/231, 손실 단조 하강).
+## ▶ 현재 — 5개 arm 중 4개 완주, `flow` 만 남음 (2026-08-23)
 
 ```
   ✅ zero         40/40
   ✅ duplicate    40/40   oriloss 1.2402 → 1.0682
   ✅ flow_reinit  40/40   oriloss 1.2567 → 0.7255
-  🔄 flow         17/40   (GPU 0)
-  🔄 random_mask  21/40   (GPU 1)
+  ✅ random_mask  40/40   oriloss 1.2810 → 0.9230
+  🔄 flow         36/40   (GPU 0)
 ```
 
-**주의 — 아직 해석하지 말 것.** `flow_reinit` 의 최종 손실이 `duplicate` 보다 낮지만, 이는
-학습 손실이며 하류 성능이 아니다. 판정은 held-out 평가와 `compare_arms.py` 의 클립 단위 쌍
-부트스트랩으로만 한다(`experiment-roadmap.md` §0 의 S1/S2/S3).
+완주한 arm 은 전부 체크포인트가 건강하다(비유한 파라미터 0/231, 손실 단조 하강).
 
-남은 42 epoch ÷ 2 GPU × 1.6h ≈ **1.4일**, 완료 예상 **8월 23일**.
+**주의 — 아직 해석하지 말 것.** arm 별 최종 학습 손실은 하류 성능이 아니다. 판정은 held-out
+평가와 `compare_arms.py` 의 클립 단위 쌍 부트스트랩으로만 한다
+(`experiment-roadmap.md` §0 의 S1/S2/S3).
 
-재개 명령:
+남은 4 epoch × 1.81h ≈ **7시간**, 완료 예상 **8월 23일 저녁**.
+그다음은 아래 "끝나면 할 일" 의 평가 + 통계 비교로 바로 넘어간다.
+
+재개 명령(중단됐을 경우):
 ```bash
-cd $CERBERUS_ROOT/hawk && ARM_GPUS="0 1" bash scripts/run_arms_parallel.sh
+cd $CERBERUS_ROOT/hawk && ARM_GPUS="0" bash scripts/run_arms_parallel.sh
 ```
+
+### 실측 처리량 — 추정에 이것만 쓸 것
+
+**1.81 h/epoch** (전 구간 실측: 웨이브 1 두 arm 38 epoch 이 68.6시간). 로그의 순간
+`s/it` 값은 1.8~4.7 사이로 크게 진동하므로 **완료 예상 계산에 쓰지 말 것** — 실제로 이
+값으로 추정했다가 완료일을 이틀 앞당겨 잘못 보고한 적이 있다. 6시간당 +3 epoch 이
+관측된 실제 속도다.
 
 ## 🔁 대화 기록이 이제 영속된다 (2026-08-18)
 

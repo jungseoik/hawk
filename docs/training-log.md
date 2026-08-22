@@ -381,3 +381,23 @@ zero          0/40  진행 시작 2026-08-13 22:23
 flow_reinit   0/40  대기
 ```
 
+
+## 2026-08-22 — `random_mask` v2 완주 (40/40)
+
+웨이브 2 의 두 arm 중 `random_mask` 가 먼저 목표에 도달했다.
+
+| | 값 |
+|---|---|
+| epoch | 40/40 (`checkpoint_39.pth`) |
+| 비유한 파라미터 | 0/231 |
+| oriloss | ep0 1.2810 → ep39 0.9230 |
+| OOM | `oom_kill 0` (신 컨테이너, 전 구간) |
+
+v1 에서 epoch 5 에 DataLoader worker OOM kill 로 죽었던 arm 이다(구 컨테이너 `memory.max`
+240GB). 신 컨테이너 739GB 에서는 재발 없이 완주했다 — OOM 이 원인이었다는 진단이 확인됐다.
+
+남은 것은 `flow` 하나(36/40). 이것이 끝나면 5개 arm 전부 동일 조건
+(`CERBERUS_REPR_LOSS_WEIGHT=0`, effective batch 4, 10,000 샘플/epoch, 40 epoch)에서
+완주한 상태가 되고 평가로 넘어간다.
+
+**학습 손실을 arm 비교에 쓰지 말 것.** 판정은 held-out 평가 + `compare_arms.py` 뿐이다.
