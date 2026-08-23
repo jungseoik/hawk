@@ -36,6 +36,7 @@ import argparse
 import json
 import math
 import os
+import re
 import random
 import sys
 from collections import defaultdict
@@ -100,12 +101,21 @@ def per_clip_scores(records, metric_fn):
 
 
 def load_eval(path):
+    """arm 이름은 **run 디렉터리**에서 뽑는다.
+
+    `config.static_ablation` 을 쓰면 안 된다 — 그것은 정적 스트림에 무엇을 넣었는가일 뿐이라
+    서로 다른 arm 이 같은 값을 가진다. 실제로 `flow_reinit` 은 정적 입력이 `flow` 라
+    `flow` arm 과 이름이 충돌해 딕셔너리에서 조용히 덮어썼다(2026-08-23 발견).
+    run 디렉터리(`runs/abl2_<arm>/…`)는 arm 마다 유일하므로 이것을 정본으로 삼는다.
+    """
     with open(path) as f:
         d = json.load(f)
-    arm = d.get("config", {}).get("static_ablation")
-    if not arm:
-        base = os.path.basename(path)
-        arm = base.replace("eval_abl_", "").replace(".json", "")
+    ckpt = d.get("config", {}).get("ckpt") or ""
+    m = re.search(r"runs/abl2_([A-Za-z0-9_]+)/", ckpt)
+    if m:
+        arm = m.group(1)
+    else:
+        arm = re.sub(r"^eval_(abl2?_)?|\.json$", "", os.path.basename(path))
     return arm, d
 
 
@@ -229,6 +239,9 @@ def main():
     evals = {}
     for p in args.eval:
         arm, d = load_eval(p)
+        if arm in evals:
+            sys.exit(f"[compare_arms] arm 이름 충돌: '{arm}' 이 두 번 나왔습니다 ({p}). "
+                     f"조용히 덮어쓰면 비교가 통째로 틀리므로 중단합니다.")
         evals[arm] = d
         print(f"  {arm:<14} ← {os.path.basename(p)}  "
               f"({len(d.get('records', []))} 클립)")

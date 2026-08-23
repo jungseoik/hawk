@@ -1,2 +1,16 @@
 [eval] zero (GPU 1) 시작 2026-08-23 09:53:50
 [eval] flow (GPU 0) 시작 2026-08-23 09:53:50
+[eval] zero 종료 rc=0 2026-08-23 12:23:08
+[eval] duplicate (GPU 1) 시작 2026-08-23 12:23:08
+[eval] flow 종료 rc=0 2026-08-23 12:27:58
+[eval] random_mask (GPU 0) 시작 2026-08-23 12:27:59
+[eval] random_mask 종료 rc=0 2026-08-23 15:00:43
+[eval] flow_reinit (GPU 0) 시작 2026-08-23 15:00:43
+[eval] duplicate 종료 rc=0 2026-08-23 15:02:15
+[eval] flow_reinit 종료 rc=0 2026-08-23 17:34:33
+[eval] 전부 종료 2026-08-23 17:34:33
+-rw-r--r-- 1 work work 1938433 Aug 23 15:01 experiments/out/eval_abl2_duplicate.json
+-rw-r--r-- 1 work work 1900756 Aug 23 12:27 experiments/out/eval_abl2_flow.json
+-rw-r--r-- 1 work work 1918822 Aug 23 17:33 experiments/out/eval_abl2_flow_reinit.json
+-rw-r--r-- 1 work work 1898012 Aug 23 14:59 experiments/out/eval_abl2_random_mask.json
+-rw-r--r-- 1 work work 1901680 Aug 23 12:22 experiments/out/eval_abl2_zero.json
