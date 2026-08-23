@@ -3,29 +3,34 @@
 **마지막 갱신 2026-08-18.** 긴 서술은 다른 문서에 있다. 여기는 *지금 무엇이 돌고 있고
 다음이 무엇인가*만 둔다.
 
-## ▶ 현재 — 5개 arm 중 4개 완주, `flow` 만 남음 (2026-08-23)
+## ▶ 현재 — **5개 arm 전부 완주**, 평가 실행 중 (2026-08-23 09:53)
 
 ```
+  ✅ flow         40/40   oriloss 1.2805 → 0.8144
   ✅ zero         40/40
   ✅ duplicate    40/40   oriloss 1.2402 → 1.0682
   ✅ flow_reinit  40/40   oriloss 1.2567 → 0.7255
   ✅ random_mask  40/40   oriloss 1.2810 → 0.9230
-  🔄 flow         36/40   (GPU 0)
 ```
 
-완주한 arm 은 전부 체크포인트가 건강하다(비유한 파라미터 0/231, 손실 단조 하강).
+다섯 arm 전부 동일 조건에서 완주했다 — `CERBERUS_REPR_LOSS_WEIGHT=0`, effective batch 4,
+10,000 샘플/epoch, 40 epoch. 체크포인트도 전부 건강하다(비유한 파라미터 0/231).
+전 구간 `oom_kill 0`.
 
-**주의 — 아직 해석하지 말 것.** arm 별 최종 학습 손실은 하류 성능이 아니다. 판정은 held-out
-평가와 `compare_arms.py` 의 클립 단위 쌍 부트스트랩으로만 한다
-(`experiment-roadmap.md` §0 의 S1/S2/S3).
+**주의 — 위 학습 손실로 arm 을 비교하지 말 것.** 하류 성능이 아니다. 판정은 held-out 평가와
+`compare_arms.py` 의 클립 단위 쌍 부트스트랩으로만 한다(`experiment-roadmap.md` §0 의 S1/S2/S3).
 
-남은 4 epoch × 1.81h ≈ **7시간**, 완료 예상 **8월 23일 저녁**.
-그다음은 아래 "끝나면 할 일" 의 평가 + 통계 비교로 바로 넘어간다.
+### 지금 돌고 있는 것 — arm 별 평가
 
-재개 명령(중단됐을 경우):
 ```bash
-cd $CERBERUS_ROOT/hawk && ARM_GPUS="0" bash scripts/run_arms_parallel.sh
+bash scripts/run_evals.sh          # 멱등: 이미 나온 결과 파일은 건너뛴다
+tail -f logs/eval_abl2_<arm>.log
 ```
+
+GPU 0 에 `flow`→`random_mask`→`flow_reinit`, GPU 1 에 `zero`→`duplicate` 를 배정해
+2 병렬 × 순차로 돈다. 결과는 `experiments/out/eval_abl2_<arm>.json`.
+
+끝나면 통계 비교로 넘어간다(아래 "끝나면 할 일").
 
 ### 실측 처리량 — 추정에 이것만 쓸 것
 

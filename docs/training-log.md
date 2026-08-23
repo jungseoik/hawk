@@ -401,3 +401,23 @@ v1 에서 epoch 5 에 DataLoader worker OOM kill 로 죽었던 arm 이다(구 �
 완주한 상태가 되고 평가로 넘어간다.
 
 **학습 손실을 arm 비교에 쓰지 말 것.** 판정은 held-out 평가 + `compare_arms.py` 뿐이다.
+
+## 2026-08-23 — `flow` v2 완주, **5개 arm 전부 완료**
+
+| | 값 |
+|---|---|
+| epoch | 40/40 (`checkpoint_39.pth`) |
+| 비유한 파라미터 | 0/231 |
+| oriloss | ep0 1.2805 → ep39 0.8144 |
+
+이로써 절제 실험의 다섯 arm(`flow`·`zero`·`random_mask`·`duplicate`·`flow_reinit`)이
+**동일 조건**에서 완주했다 — `CERBERUS_REPR_LOSS_WEIGHT=0`, effective batch 4,
+10,000 샘플/epoch, 40 epoch, 아키텍처·파라미터 수·토큰 수 고정. arm 간 유일한 차이는
+정적 스트림에 무엇이 들어가는가뿐이다.
+
+v1 대비 달라진 것: (a) 표현 손실 가중치 0 — v1 에서 `cos = ±1` 정류점 이탈이 arm 마다
+다른 시점에 일어나 실효 목적함수가 갈렸다(Appendix A.1), (b) 신 컨테이너
+`memory.max` 739GB — v1 의 OOM 사망 3건이 전부 여기서 나왔다.
+
+학습 단계는 여기서 끝. 이후는 held-out 평가와 `compare_arms.py` 통계 비교다.
+학습 손실은 arm 비교의 근거가 되지 않는다.
