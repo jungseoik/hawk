@@ -268,15 +268,22 @@ class BaseTask:
 
             middle_result = loss_dict["middle_result"].view(1, -1)
             middle_result_motion = loss_dict["middle_result_motion"].view(1, -1)
-            middle_result_background = loss_dict["middle_result_background"].view(1, -1)
+            # `use_background: False`(진짜 dual-branch 대조군)에서는 배경 항이 아예 없다.
+            # 그 경우 `L_BL` 과 `L_dis` 를 손실에서 빼고, 로깅에는 0 을 넣는다.
+            has_bg = loss_dict.get("middle_result_background") is not None
+            middle_result_background = (loss_dict["middle_result_background"].view(1, -1)
+                                        if has_bg else None)
 
             mse_loss = F.cosine_similarity(middle_result, middle_result_motion)
             mse_loss = 1 - mse_loss
 
             # background should be dissimilar from motion (they are complementary)
             # minimizing (1 + cos_sim) / 2 pushes cos_sim toward -1 (maximum dissimilarity)
-            mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
-            mse_loss_bg = (1 + mse_loss_bg) / 2
+            if has_bg:
+                mse_loss_bg = F.cosine_similarity(middle_result_motion, middle_result_background)
+                mse_loss_bg = (1 + mse_loss_bg) / 2
+            else:
+                mse_loss_bg = torch.zeros((), device=mse_loss.device, dtype=mse_loss.dtype)
 
             # 표현 손실(`mse_loss`=L_sim, `mse_loss_bg`=L_dis)의 가중치는 설정에서 읽는다.
             #
@@ -296,9 +303,10 @@ class BaseTask:
             # 것이 없다. 통제 실험에서 켜 둘 이유도 없다.
             loss = (loss_dict["loss"]
                     + 0.1 * loss_dict["loss_motion"]
-                    + 0.1 * loss_dict["loss_background"]
                     + REPR_LOSS_WEIGHT * mse_loss
                     + REPR_LOSS_WEIGHT * mse_loss_bg)
+            if has_bg:
+                loss = loss + 0.1 * loss_dict["loss_background"]
 
             # after_train_step()
             if use_amp:
@@ -320,7 +328,7 @@ class BaseTask:
             metric_logger.update(oriloss=loss_dict["loss"].item())
             metric_logger.update(middleloss=mse_loss.item())
             metric_logger.update(motionloss=loss_dict["loss_motion"].item())
-            metric_logger.update(backgroundloss=loss_dict["loss_background"].item())
+            metric_logger.update(backgroundloss=(loss_dict["loss_background"].item() if has_bg else 0.0))
             metric_logger.update(middleloss_bg=mse_loss_bg.item())
 
             total_loss = loss.item()
@@ -328,7 +336,7 @@ class BaseTask:
             ori_loss = loss_dict["loss"].item()
             middle_loss = mse_loss.item()
             motion_loss = loss_dict["loss_motion"].item()
-            background_loss = loss_dict["loss_background"].item()
+            background_loss = loss_dict["loss_background"].item() if has_bg else 0.0
             middle_loss_bg = mse_loss_bg.item()
 
             # Global step = epoch * iters_per_epoch + i. Derived from the resumed

@@ -421,3 +421,79 @@ v1 대비 달라진 것: (a) 표현 손실 가중치 0 — v1 에서 `cos = ±1`
 
 학습 단계는 여기서 끝. 이후는 held-out 평가와 `compare_arms.py` 통계 비교다.
 학습 손실은 arm 비교의 근거가 되지 않는다.
+
+## 2026-08-24 — `no_static` (진짜 dual-branch 대조군) 착수
+
+### 왜 필요했나
+
+절제 arm 다섯 개가 **전부 3-브랜치**였다. `zero` 조차 배경 분기(66개 텐서, 56.7M 파라미터,
+토큰 32개)를 그대로 갖고 **내용만 0**이다. 즉 다섯 arm 은 "정적 스트림에 무엇을 넣는가"만
+답했고, **"세 번째 브랜치가 있는 것이 없는 것보다 나은가"는 통제된 적이 없다.**
+논문의 주장이 바로 그것이므로 이 arm 이 없으면 주장이 성립하지 않는다.
+
+### 원본 HAWK 공식 체크포인트로 대신할 수 없는 이유
+
+`Jiaqi-hkust/hawk` 에 가중치가 공개돼 있고(`finetuned.pth`·`pretrained.pth`),
+구조를 열어보니 정확히 dual-branch 였다 — 165 텐서, background 키 0개. 우리 것(231)과
+**키 집합이 완전히 포개진다**(HAWK 에만 있는 키 0개). `hawk_official/` 에 받아 두었다.
+
+그런데 체크포인트 안의 config 를 보면:
+
+| | HAWK finetuned | 우리 arm |
+|---|---|---|
+| stage-2 epoch | **11** (epoch 10) | 40 |
+| effective batch | 4 (batch 1 × world 4) | 4 |
+| iters_per_epoch | 2500 | 2500 |
+| stage-1 | 그들의 checkpoint_127 | 우리 checkpoint_106 |
+
+배치와 epoch 당 샘플(10,000)은 우연히 일치하지만 **학습량이 3.6배 다르고 stage-1 도 다르다.**
+그대로 비교하면 차이가 브랜치 때문인지 학습량 때문인지 못 가리며, 방향이 우리에게 유리해서
+가장 먼저 지적당한다. → 공식 체크포인트는 **published baseline 행**으로만 쓰고,
+인과 귀속은 우리가 직접 돌리는 `no_static` 으로 한다.
+
+### 통제
+
+다른 arm 과 맞춘 것: 같은 Stage-1(`checkpoint_106`), 40 epoch, `iters_per_epoch` 2500,
+**effective batch 4**(2 GPU × batch 2 — 다른 arm 은 1 GPU × batch 4), `REPR_LOSS_WEIGHT=0`.
+다른 것: 정적 스트림·배경 분기·`L_BL` 이 없다. 그것이 측정 대상이다.
+
+### 구현 — `use_background: False`
+
+건드린 곳 다섯. 학습이 끝난 arm 들의 비교 가능성에는 영향이 없다(전부 완주 후 작업).
+
+1. `models/video_llama.py` — 플래그 추가, forward 두 경로에서 배경 인코딩·토큰 결합 제외
+   (`num_patch_tokens*3` → `*2`), 배경 손실 경로 우회
+2. `tasks/base_task.py` — 배경 항이 없을 수 있음(`has_bg`). `L_BL`·`L_dis` 를 손실에서 빼고
+   로깅에는 0
+3. `datasets/datasets/video_instruct_dataset.py` — 프롬프트 토큰 32×3 → 32×2
+4. `datasets/builders/instruct_builder.py` — config 전달
+5. `conversation/conversation_video.py` — **추론 경로도** 32×2. 이걸 빼면 학습 64 / 추론 96 의
+   train-test 불일치가 된다(과거 반대 방향으로 같은 버그가 있었다)
+
+### 함정 — DDP `unused parameters`
+
+배경 모듈을 만들어만 두고 forward 에서 안 쓰면 DDP 가 죽는다:
+`Expected to have finished reduction in the prior iteration…` (실측).
+`find_unused_parameters=True` 로 덮으면 전 arm 의 DDP 동작이 바뀌고 매 스텝 순회 비용이 붙는다.
+→ `use_background=False` 일 때 `__init__` 끝에서 배경 모듈을 **삭제**한다. Stage-1 로드가
+`strict=False` 라 없어진 키는 그냥 무시된다.
+
+### 검증 (착수 전 전부 통과)
+
+| 확인 | 결과 |
+|---|---|
+| 3-브랜치 학습 회귀 | 164 iter, 에러 0 |
+| 2-브랜치 학습 | 89 iter, 에러 0, "배경 분기 모듈 제거됨" 로그 확인 |
+| 프롬프트 토큰 수 | `n_streams=3` → 96, `n_streams=2` → 64 |
+| **3-브랜치 평가 회귀** | 기존 `eval_abl2_flow.json` 과 **3/3 문장 완전 일치** |
+
+### 실행
+
+```bash
+bash scripts/run_no_static.sh          # 재시도 12회 포함
+grep -c 'Averaged stats' $CERBERUS_ROOT/runs/abl2_no_static/train.log   # 진행률
+```
+
+⚠ `run_no_static.sh --check` 에 `grep -c` 관용구 버그가 있다(0 epoch 일 때 "0\n0" 출력).
+학습 중이라 스크립트를 고치지 않는다(bash 는 실행 중 스크립트를 바이트 오프셋으로 읽는다).
+진행률은 위 `grep -c` 로 직접 볼 것. 완주 후 수정한다.

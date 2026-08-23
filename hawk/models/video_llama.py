@@ -78,9 +78,22 @@ class VideoLLAMA(Blip2Base):
         num_video_query_token = 32,
         num_audio_query_token = 8,
         imagebind_ckpt_path = '/mnt/workspace/ckpt',
-        equip_audio_branch = True
+        equip_audio_branch = True,
+        # 정적(배경) 스트림을 통째로 끈다 — 진짜 dual-branch 대조군용.
+        #
+        # 절제 arm 다섯 개(`flow`·`zero`·`random_mask`·`duplicate`·`flow_reinit`)는 전부
+        # 3-브랜치다. `zero` 조차 배경 분기(56.7M 파라미터, 토큰 32개)를 그대로 갖고 있고
+        # 내용만 0이다. 따라서 그 다섯으로는 "정적 스트림에 무엇을 넣는가"만 답할 수 있고
+        # **"세 번째 브랜치가 있는 게 없는 것보다 나은가"는 답할 수 없다.**
+        # 이 플래그가 그 빠진 대조군을 만든다.
+        #
+        # 모듈 자체는 그대로 만든다(state_dict 모양이 안 바뀌어 Stage-1 체크포인트가
+        # 그대로 로드된다). 대신 forward 에서 쓰지 않으므로 기울기가 흐르지 않고,
+        # AdamW 는 grad 가 None 인 파라미터를 건너뛰므로 초기값에 머문다.
+        use_background = True,
     ):
         super().__init__()
+        self.use_background = use_background
 
         self.tokenizer = self.init_tokenizer()
         self.low_resource = low_resource
@@ -478,6 +491,24 @@ class VideoLLAMA(Blip2Base):
 
 
         #  self.audio_hidden_size
+
+        # dual-branch 대조군: 배경 분기 모듈을 **삭제**한다.
+        #
+        # 만들어만 두고 forward 에서 안 쓰면 DDP 가 죽는다 — 학습 가능한데 손실에
+        # 기여하지 않는 파라미터가 있으면 "Expected to have finished reduction in the
+        # prior iteration" 오류가 난다(실측). `find_unused_parameters=True` 로 덮을 수도
+        # 있지만 그러면 전 arm 의 DDP 동작이 바뀌고 매 스텝 순회 비용이 붙는다.
+        # 지운 키는 Stage-1 체크포인트 로드가 `strict=False` 라 그냥 무시된다.
+        if not self.use_background:
+            for _n in ("visual_encoder_background", "ln_vision_background",
+                       "Qformer_background", "query_tokens_background",
+                       "video_Qformer_background", "video_query_tokens_background",
+                       "video_frame_position_embedding_background",
+                       "llama_proj_background_0", "llama_proj_background_last"):
+                if hasattr(self, _n):
+                    delattr(self, _n)
+            logging.info("dual-branch 모드: 배경 분기 모듈 제거됨 (use_background=False)")
+
     def vit_to_cpu(self):
         self.ln_vision.to("cpu")
         self.ln_vision.float()
@@ -759,7 +790,10 @@ class VideoLLAMA(Blip2Base):
                 img_motion_embeds, atts_motion_img, middle_result_motion = self.encode_videoQformer_visual(image_motion, motion=True) #torch.Size([3, 32, 4096])
 
                 #add background image encode
-                img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
+                if self.use_background:
+                    img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
+                else:
+                    img_background_embeds = atts_background_img = middle_result_background = None
 
             # elif self.train_flag == 1:
             #     num_patch_tokens = self.num_audio_query_token
@@ -776,16 +810,20 @@ class VideoLLAMA(Blip2Base):
             for cur_input_ids, cur_input_embeds in zip(input_ids, temp_input_embedding,): # For Each Batch
                 cur_image_features = img_embeds[cur_image_idx]
                 cur_image_motion_features = img_motion_embeds[cur_image_idx]
-                cur_image_background_features = img_background_embeds[cur_image_idx]
+                n_streams = 3 if self.use_background else 2
+                cur_image_background_features = img_background_embeds[cur_image_idx] if self.use_background else None
 
-                if (cur_input_ids == im_patch_token_id).sum() != num_patch_tokens * 3:
+                if (cur_input_ids == im_patch_token_id).sum() != num_patch_tokens * n_streams:
                         raise ValueError("The number of image patch tokens should be the same as the number of image patches.")
                 masked_indices = torch.where(cur_input_ids == im_patch_token_id)[0]
                 mask_index_start = masked_indices[0]
-                if (masked_indices != torch.arange(mask_index_start, mask_index_start+num_patch_tokens*3, device=masked_indices.device, dtype=masked_indices.dtype)).any():
+                if (masked_indices != torch.arange(mask_index_start, mask_index_start+num_patch_tokens*n_streams, device=masked_indices.device, dtype=masked_indices.dtype)).any():
                     raise ValueError("The image patch tokens should be consecutive.")
 
-                cur_new_input_embeds = torch.cat((cur_input_embeds[:mask_index_start], cur_image_features, cur_image_motion_features, cur_image_background_features, cur_input_embeds[mask_index_start+num_patch_tokens*3:]), dim=0)
+                stream_features = [cur_image_features, cur_image_motion_features]
+                if self.use_background:
+                    stream_features.append(cur_image_background_features)
+                cur_new_input_embeds = torch.cat((cur_input_embeds[:mask_index_start], *stream_features, cur_input_embeds[mask_index_start+num_patch_tokens*n_streams:]), dim=0)
 
                 new_input_embeds.append(cur_new_input_embeds)
 
@@ -823,9 +861,14 @@ class VideoLLAMA(Blip2Base):
                 #add motion image encode
                 img_motion_embeds, atts_motion_img, middle_result_motion = self.encode_videoQformer_visual(image_motion, motion=True) #torch.Size([4, 32, 4096]) b t embedding
                 #add background image encode
-                img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
-                img_embeds = torch.cat([img_embeds, img_motion_embeds, img_background_embeds], dim=1)
-                atts_img = torch.cat([atts_img, atts_motion_img, atts_background_img], dim=1)
+                if self.use_background:
+                    img_background_embeds, atts_background_img, middle_result_background = self.encode_videoQformer_visual(image_background, background=True)
+                    img_embeds = torch.cat([img_embeds, img_motion_embeds, img_background_embeds], dim=1)
+                    atts_img = torch.cat([atts_img, atts_motion_img, atts_background_img], dim=1)
+                else:
+                    img_background_embeds = atts_background_img = middle_result_background = None
+                    img_embeds = torch.cat([img_embeds, img_motion_embeds], dim=1)
+                    atts_img = torch.cat([atts_img, atts_motion_img], dim=1)
 
             if self.prompt_list:
                 prompt = random.choice(self.prompt_list)
@@ -886,11 +929,12 @@ class VideoLLAMA(Blip2Base):
             empty_targets_background = (
                 torch.ones([atts_background_img.shape[0], atts_background_img.shape[1]+1],
                         dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
-            )
+            ) if self.use_background else None
 
             targets = torch.cat([empty_targets, targets], dim=1)
             targets_motion = torch.cat([empty_targets_motion, targets_motion], dim=1)
-            targets_background = torch.cat([empty_targets_background, targets_background], dim=1)
+            if self.use_background:
+                targets_background = torch.cat([empty_targets_background, targets_background], dim=1)
 
             batch_size = img_embeds.shape[0]
             bos = torch.ones([batch_size, 1],
@@ -910,7 +954,7 @@ class VideoLLAMA(Blip2Base):
 
             atts_bos = atts_img[:, :1]
             atts_bos_motion = atts_motion_img[:, :1]
-            atts_bos_background = atts_background_img[:, :1]
+            atts_bos_background = atts_background_img[:, :1] if self.use_background else None
 
             to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
             to_regress_embeds_motion = self.llama_model.model.embed_tokens(to_regress_tokens_motion.input_ids)
@@ -918,11 +962,11 @@ class VideoLLAMA(Blip2Base):
 
             inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
             inputs_embeds_motion = torch.cat([bos_embeds_motion, img_motion_embeds, to_regress_embeds_motion], dim=1)
-            inputs_embeds_background = torch.cat([bos_embeds_background, img_background_embeds, to_regress_embeds_background], dim=1)
+            inputs_embeds_background = torch.cat([bos_embeds_background, img_background_embeds, to_regress_embeds_background], dim=1) if self.use_background else None
 
             attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
             attention_mask_motion = torch.cat([atts_bos_motion, atts_motion_img, to_regress_tokens_motion.attention_mask], dim=1)
-            attention_mask_background = torch.cat([atts_bos_background, atts_background_img, to_regress_tokens_background.attention_mask], dim=1)
+            attention_mask_background = torch.cat([atts_bos_background, atts_background_img, to_regress_tokens_background.attention_mask], dim=1) if self.use_background else None
 
             with self.maybe_autocast():
                 outputs = self.llama_model(
@@ -942,10 +986,10 @@ class VideoLLAMA(Blip2Base):
                     attention_mask=attention_mask_background,
                     return_dict=True,
                     labels=targets_background,
-                )
+                ) if self.use_background else None
             loss = outputs.loss
             loss_motion = outputs_motion.loss
-            loss_background = outputs_background.loss
+            loss_background = outputs_background.loss if self.use_background else None
 
         return {"loss": loss, "loss_motion": loss_motion, "loss_background": loss_background, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
 
@@ -981,6 +1025,8 @@ class VideoLLAMA(Blip2Base):
         fusion_head_layers = cfg.get("fusion_head_layers", 2)
         num_video_query_token =  cfg.get("num_video_query_token", 32)
 
+        use_background = cfg.get("use_background", True)
+
         equip_audio_branch= cfg.get("equip_audio_branch", True)
         num_audio_query_token =  cfg.get("num_audio_query_token", 8)
         imagebind_ckpt_path = cfg.get("imagebind_ckpt_path", '/mnt/workspace/ckpt')
@@ -1011,6 +1057,7 @@ class VideoLLAMA(Blip2Base):
             num_audio_query_token = num_audio_query_token,
             imagebind_ckpt_path = imagebind_ckpt_path,
             equip_audio_branch = equip_audio_branch,
+            use_background = use_background,
             llama_proj_model = llama_proj_model
         )
 

@@ -320,12 +320,16 @@ class Chat:
 
         image_emb, _, _ = self.model.encode_videoQformer_visual(video)                      # 1,32,4096
         image_motion_emb, _, _ = self.model.encode_videoQformer_visual(video_motion, motion=True)
-        image_background_emb, _, _ = self.model.encode_videoQformer_visual(
-            video_background, background=True
-        )
-        img_list.append(
-            torch.cat((image_emb, image_motion_emb, image_background_emb), dim=1)
-        )
+        # dual-branch 대조군(`use_background: False`)에서는 정적 스트림을 넣지 않는다.
+        # 학습이 32x2 토큰으로 됐는데 추론에서 32x3 을 넣으면 train/test 불일치가 된다
+        # — 바로 위 주석이 기록한, 반대 방향의 같은 버그다.
+        streams = [image_emb, image_motion_emb]
+        if getattr(self.model, "use_background", True):
+            image_background_emb, _, _ = self.model.encode_videoQformer_visual(
+                video_background, background=True
+            )
+            streams.append(image_background_emb)
+        img_list.append(torch.cat(tuple(streams), dim=1))
         conv.append_message(conv.roles[0], "<Video><ImageHere></Video> ")
         return "Received."
 

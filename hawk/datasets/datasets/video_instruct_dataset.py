@@ -96,7 +96,7 @@ llama_v2_video_conversation = Conversation(
 IGNORE_INDEX = -100
 
 class Video_Instruct_Dataset(BaseDataset):
-    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna', static_ablation='flow'):
+    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna', static_ablation='flow', use_background=True):
         """
         vis_root (string): Root directory of Llava images (e.g. webvid_eval/video/)
         ann_root (string): Root directory of video (e.g. webvid_eval/annotations/)
@@ -123,6 +123,10 @@ class Video_Instruct_Dataset(BaseDataset):
         self.data_type = data_type
         self.model_type = model_type
         self.static_ablation = static_ablation
+        # dual-branch 대조군에서는 정적 스트림 토큰을 프롬프트에서도 빼야 한다.
+        # 모델이 32×2 임베딩만 내놓는데 프롬프트에 32×3 자리가 있으면 forward 가
+        # "patch token 수 불일치"로 죽는다.
+        self.use_background = use_background
 
     def _get_video_path(self, sample):
         rel_video_fp = sample['video']
@@ -173,7 +177,7 @@ class Video_Instruct_Dataset(BaseDataset):
                 if 'cn' in self.data_type:
                     msg = ""
                 # 添加视频<DEFAULT_IMAGE_PATCH_TOKEN>,以及msg到convsation list 0
-                sources = preprocess_multimodal(copy.deepcopy(conversation_list), None, cur_token_len=self.num_video_query_token,msg = msg)
+                sources = preprocess_multimodal(copy.deepcopy(conversation_list), None, cur_token_len=self.num_video_query_token,msg = msg, n_streams = 3 if self.use_background else 2)
                 new_sources = convert_source_vicuna_format(sources)
                 
                 if self.model_type =='vicuna':
@@ -276,12 +280,13 @@ def preprocess_multimodal(
     conversation_list: Sequence[str],
     multimodal_cfg: dict,
     cur_token_len: int,
-    msg=''
+    msg='',
+    n_streams: int = 3,
 ) -> Dict:
     # 将conversational list中
     is_multimodal = True
     # image_token_len = multimodal_cfg['image_token_len']
-    image_token_len = cur_token_len * 3  # appearance + motion + background
+    image_token_len = cur_token_len * n_streams  # appearance + motion (+ background)
     conversation_list[0]["q"] = "<Video>"+DEFAULT_IMAGE_PATCH_TOKEN * image_token_len +"</Video> " + msg + conversation_list[0]["q"]
     return [conversation_list]
 

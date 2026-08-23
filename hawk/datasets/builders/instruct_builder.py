@@ -50,6 +50,7 @@ class Instruct_Builder(BaseDatasetBuilder):
             # 정적 스트림 통제군: flow(제안) / random_mask / duplicate / zero.
             # 네 조건 모두 아키텍처·파라미터·토큰 수가 같고 정적 스트림의 내용만 다르다.
             static_ablation = self.config.get("static_ablation", "flow"),
+            use_background = self.config.get("use_background", True),
         )
 
         return datasets
