@@ -69,6 +69,28 @@ def filter_refusals(records, field_gt):
     return keep, len(records) - len(keep)
 
 
+def detect_use_background(ckpt_path):
+    """체크포인트에 배경 분기 가중치가 있는지로 3-브랜치/2-브랜치를 판정한다.
+
+    run 의 config.yaml 이 아니라 **가중치 자체**를 본다. config 는 없을 수도 있고
+    (HAWK 공식 체크포인트에는 run 디렉터리가 없다) 실수로 어긋날 수도 있지만,
+    가중치에 `*background*` 키가 있는지는 정본이다.
+
+    잘못 판정하면 오류 없이 조용히 틀린다 — 2-브랜치 체크포인트를 3-브랜치로 로드하면
+    배경 분기가 랜덤 초기화된 채 forward 에 들어가고 시각 토큰이 32x3 이 되어
+    학습(32x2)과 어긋난다.
+    """
+    if not ckpt_path or not os.path.exists(ckpt_path):
+        return None
+    try:
+        import torch as _t
+        sd = _t.load(ckpt_path, map_location="cpu")
+        sd = sd.get("model", sd)
+        return any("background" in k for k in sd)
+    except Exception:
+        return None
+
+
 def detect_static_ablation(ckpt_path):
     """체크포인트가 속한 run 디렉터리의 config.yaml 에서 `static_ablation` 을 읽는다.
 
@@ -418,7 +440,7 @@ def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, ver
 # ---------------------------------------------------------------------------
 # 추론
 # ---------------------------------------------------------------------------
-def build_chat(cfg_path, ckpt, gpu_id):
+def build_chat(cfg_path, ckpt, gpu_id, use_background=None):
     from hawk.common.config import Config
     from hawk.common.registry import registry
     from hawk.conversation.conversation_video import Chat
@@ -438,6 +460,12 @@ def build_chat(cfg_path, ckpt, gpu_id):
     model_cfg.device_8bit = gpu_id
     if ckpt:
         model_cfg.ckpt = ckpt          # arm 별 체크포인트로 덮어쓴다
+
+    # dual-branch 체크포인트(`no_static`, HAWK 공식)는 배경 분기가 아예 없다.
+    # 3-브랜치로 로드하면 배경 분기가 랜덤 초기화된 채 forward 에 들어가고 시각 토큰이
+    # 32x3 이 되어 학습(32x2)과 어긋난다 — 오류 없이 **조용히 틀린 숫자**가 나온다.
+    if use_background is not None:
+        model_cfg.use_background = bool(use_background)
 
     model = registry.get_model_class(model_cfg.arch).from_config(model_cfg).to(f"cuda:{gpu_id}")
     model.eval()
@@ -549,7 +577,8 @@ def run_eval(args):
         samples = samples[: args.limit]
 
     print(f"[eval] 클립 {len(samples)}개 | ckpt={args.ckpt or '(config 기본값)'}")
-    chat = build_chat(args.cfg, args.ckpt, args.gpu_id)
+    chat = build_chat(args.cfg, args.ckpt, args.gpu_id,
+                      use_background=args.use_background)
 
     records, failures = [], 0
     t0 = time.time()
@@ -613,6 +642,8 @@ def run_eval(args):
         "config": {
             "cfg": args.cfg,
             "ckpt": args.ckpt,
+            "use_background": args.use_background,
+            "use_background_source": getattr(args, "use_background_source", ""),
             "static_ablation": args.static_ablation,
             "static_ablation_source": args.static_ablation_source,
             "anno": args.anno,
@@ -687,6 +718,9 @@ def main():
     ap.add_argument("--videos-dir", default=DEFAULT_VIDEOS)
     ap.add_argument("--out", default="experiments/out/eval.json")
     ap.add_argument("--limit", type=int, default=0, help="0이면 전체")
+    ap.add_argument("--use-background", dest="use_background", default=None,
+                    type=lambda v: v.lower() in ("1", "true", "yes"),
+                    help="3-브랜치 여부. 미지정 시 체크포인트 가중치에서 자동 판정.")
     ap.add_argument("--gpu-id", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0,
                     help="생성 결정론용 시드. 결과 파일에 기록된다.")
@@ -706,6 +740,16 @@ def main():
 
     # 정적 입력 모드는 학습이 남긴 config 에서 읽는 것을 기본으로 한다. 수동 지정에
     # 맡기면 언젠가 빠뜨리고, 빠뜨려도 실행은 정상 종료하며 수치만 조용히 틀린다.
+    if args.use_background is None:
+        args.use_background = detect_use_background(getattr(args, "ckpt", None))
+        args.use_background_source = "체크포인트 가중치에서 자동 판정"
+    else:
+        args.use_background_source = "명시 지정"
+    if args.use_background is None:
+        args.use_background = True
+        args.use_background_source = "기본값(3-브랜치) — 판정 실패"
+    print(f"[eval] use_background = {args.use_background}  ← {args.use_background_source}")
+
     if getattr(args, "static_ablation", None):
         args.static_ablation_source = "명시 지정"
     else:
