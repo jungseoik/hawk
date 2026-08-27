@@ -51,6 +51,7 @@ class Instruct_Builder(BaseDatasetBuilder):
             # 네 조건 모두 아키텍처·파라미터·토큰 수가 같고 정적 스트림의 내용만 다르다.
             static_ablation = self.config.get("static_ablation", "flow"),
             use_background = self.config.get("use_background", True),
+            background_text_path = self.config.get("background_text_path", None),
         )
 
         return datasets

@@ -841,7 +841,47 @@ class VideoLLAMA(Blip2Base):
                 )
             loss = outputs.loss
 
-            return {"loss": loss, "loss_motion": loss, "loss_background": loss, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
+            # --- Stage-2 배경 감독 (`L_BL`) -------------------------------------
+            # 이 경로는 원래 `loss_background` 로 메인 손실을 **그대로** 되돌려줬다
+            # (원본 HAWK 도 `loss_motion` 을 같은 식으로 aliasing 한다). 즉 Stage-2 에는
+            # 배경 분기 전용 감독이 없었고, 그래서 분기가 상수로 붕괴했다 —
+            # 클립이 달라도 출력 코사인 0.998, 정상인 외형 분기는 0.76(실측).
+            # 랜덤 초기화에서 다시 학습해도 재현되므로(0.9994) Stage-1 탓이 아니라
+            # **목적함수 탓**이다: 배경 토큰을 클립마다 다르게 만들 이유가 없으면
+            # 상수가 최적해다(LLM 이 안정적인 학습된 프롬프트로 쓴다).
+            #
+            # 여기서는 배경 토큰 **만으로** 장면 문장을 생성하게 해 분기가 자기 입력을
+            # 볼 이유를 만든다. 감독 문장은 Stage-1 과 같은 추출기로 미리 만들어 둔다
+            # (`scripts/build_background_text.py`, 서로 다른 문장 99.9%).
+            loss_background = loss
+            if self.use_background and samples.get("text_input_background"):
+                text_bg = [t + self.end_sym for t in samples["text_input_background"]]
+                tok_bg = self.llama_tokenizer(
+                    text_bg, return_tensors="pt", padding="longest", truncation=True,
+                    max_length=self.max_txt_len, add_special_tokens=False,
+                ).to(image.device)
+                tgt_bg = tok_bg.input_ids.masked_fill(
+                    tok_bg.input_ids == self.llama_tokenizer.pad_token_id, -100)
+                empty_bg = torch.ones(
+                    [atts_background_img.shape[0], atts_background_img.shape[1] + 1],
+                    dtype=torch.long).to(image.device).fill_(-100)   # +1 은 bos
+                tgt_bg = torch.cat([empty_bg, tgt_bg], dim=1)
+
+                bos_bg = torch.ones([img_background_embeds.shape[0], 1],
+                                    dtype=tok_bg.input_ids.dtype,
+                                    device=tok_bg.input_ids.device) * self.llama_tokenizer.bos_token_id
+                bos_emb_bg = self.llama_model.model.embed_tokens(bos_bg)
+                emb_bg = torch.cat(
+                    [bos_emb_bg, img_background_embeds,
+                     self.llama_model.model.embed_tokens(tok_bg.input_ids)], dim=1)
+                att_bg = torch.cat(
+                    [atts_background_img[:, :1], atts_background_img, tok_bg.attention_mask], dim=1)
+                with self.maybe_autocast():
+                    loss_background = self.llama_model(
+                        inputs_embeds=emb_bg, attention_mask=att_bg,
+                        return_dict=True, labels=tgt_bg).loss
+
+            return {"loss": loss, "loss_motion": loss, "loss_background": loss_background, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
         else:
             image = samples["image"]
             image_motion=samples["image_motion"]

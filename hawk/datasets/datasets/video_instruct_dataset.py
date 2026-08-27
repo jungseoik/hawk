@@ -96,7 +96,7 @@ llama_v2_video_conversation = Conversation(
 IGNORE_INDEX = -100
 
 class Video_Instruct_Dataset(BaseDataset):
-    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna', static_ablation='flow', use_background=True):
+    def __init__(self, vis_processor, text_processor, vis_root, ann_root,num_video_query_token=32,tokenizer_name = '/mnt/workspace/ckpt/vicuna-13b/',data_type = 'video', model_type='vicuna', static_ablation='flow', use_background=True, background_text_path=None):
         """
         vis_root (string): Root directory of Llava images (e.g. webvid_eval/video/)
         ann_root (string): Root directory of video (e.g. webvid_eval/annotations/)
@@ -127,6 +127,15 @@ class Video_Instruct_Dataset(BaseDataset):
         # 모델이 32×2 임베딩만 내놓는데 프롬프트에 32×3 자리가 있으면 forward 가
         # "patch token 수 불일치"로 죽는다.
         self.use_background = use_background
+        # Stage-2 배경 감독(`L_BL`)용 문장. 없으면 감독도 없다(기존 동작).
+        # forward 가 `loss_background` 로 메인 손실을 그대로 되돌려주던 탓에 배경 분기가
+        # 상수로 붕괴했다(클립간 코사인 0.998, 외형 분기 0.76). 이 문장이 있으면
+        # 배경 토큰만으로 장면을 서술하게 만들어 분기가 입력을 볼 이유를 준다.
+        self.background_text = {}
+        if background_text_path:
+            import json as _j
+            self.background_text = _j.load(open(background_text_path))
+            print(f"[dataset] 배경 감독 문장 {len(self.background_text)}건 로드")
 
     def _get_video_path(self, sample):
         rel_video_fp = sample['video']
@@ -197,6 +206,9 @@ class Video_Instruct_Dataset(BaseDataset):
                 data_dict['image'] = video
                 data_dict['image_motion'] = video_motion
                 data_dict['image_background'] = video_background
+                if self.background_text:
+                    data_dict['text_input_background'] = self.background_text.get(
+                        os.path.basename(video_path), "")
             except:
                 print(f"Failed to load examples with video: {video_path}. "
                             f"Will randomly sample an example as a replacement.")
@@ -210,6 +222,7 @@ class Video_Instruct_Dataset(BaseDataset):
             "image": video,
             "image_motion": video_motion,
             "image_background": video_background,
+            "text_input_background": data_dict.get("text_input_background"),
             "text_input": data_dict["input_ids"],
             "labels": data_dict["labels"],
             "type":'video',
@@ -254,6 +267,10 @@ class Video_Instruct_Dataset(BaseDataset):
                 batch['images_background'] = torch.stack(images_background)
             else:
                 batch['images_background'] = images_background
+
+        if instances[0].get('text_input_background') is not None:
+            batch['text_input_background'] = [i.get('text_input_background') or ""
+                                              for i in instances]
 
         batch['conv_type'] = 'multi'
         return batch
