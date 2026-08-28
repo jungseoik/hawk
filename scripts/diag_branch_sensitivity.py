@@ -46,12 +46,14 @@ def main():
     ap.add_argument("--anno", required=True)
     ap.add_argument("--n", type=int, default=60)
     ap.add_argument("--gpu-id", type=int, default=0)
+    ap.add_argument("--device", default=None, help="cpu 로 주면 CPU 에서 돈다 (GPU 가 학습으로 만석일 때)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
     _ev.enforce_determinism(0)
-    chat = _ev.build_chat(a.cfg, a.ckpt, a.gpu_id, use_background=True)
-    model, dev = chat.model, f"cuda:{a.gpu_id}"
+    dev = a.device or f"cuda:{a.gpu_id}"
+    chat = _ev.build_chat(a.cfg, a.ckpt, a.gpu_id, use_background=True, device=a.device)
+    model = chat.model
 
     anno = json.load(open(a.anno))
     vids, seen = [], set()

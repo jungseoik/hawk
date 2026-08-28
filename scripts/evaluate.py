@@ -440,7 +440,7 @@ def judge_gpt_guided(records, judge_model, field_gt, field_pred, limit=None, ver
 # ---------------------------------------------------------------------------
 # 추론
 # ---------------------------------------------------------------------------
-def build_chat(cfg_path, ckpt, gpu_id, use_background=None):
+def build_chat(cfg_path, ckpt, gpu_id, use_background=None, device=None):
     from hawk.common.config import Config
     from hawk.common.registry import registry
     from hawk.conversation.conversation_video import Chat
@@ -467,7 +467,14 @@ def build_chat(cfg_path, ckpt, gpu_id, use_background=None):
     if use_background is not None:
         model_cfg.use_background = bool(use_background)
 
-    model = registry.get_model_class(model_cfg.arch).from_config(model_cfg).to(f"cuda:{gpu_id}")
+    # CPU 로 올리는 경로 — 분기 임베딩 진단처럼 LLM 생성이 필요 없는 작업에 쓴다.
+    # GPU 가 학습으로 만석일 때 학습을 방해하지 않고 진단하기 위한 것이다.
+    # fp16 은 CPU 에서 상당수 연산이 지원되지 않으므로 fp32 로 내린다.
+    if device is not None and str(device).startswith("cpu"):
+        model_cfg.vit_precision = "fp32"
+
+    _dev = device if device is not None else f"cuda:{gpu_id}"
+    model = registry.get_model_class(model_cfg.arch).from_config(model_cfg).to(_dev)
     model.eval()
 
     # 평가에는 반드시 eval processor(`alpro_video_eval`)를 써야 한다. train processor 는

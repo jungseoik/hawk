@@ -876,10 +876,20 @@ class VideoLLAMA(Blip2Base):
                      self.llama_model.model.embed_tokens(tok_bg.input_ids)], dim=1)
                 att_bg = torch.cat(
                     [atts_background_img[:, :1], atts_background_img, tok_bg.attention_mask], dim=1)
-                with self.maybe_autocast():
+                # ⚠ fp16 으로 돌리면 이 forward 가 오버플로해 NaN 을 낸다 (실측: 같은 입력에서
+                # fp16=nan, bf16=4.2606, fp32=4.25). 메인 forward 는 시퀀스가 길고 시각 토큰이
+                # 텍스트에 둘러싸여 괜찮지만, 이쪽은 bos + 시각 32 토큰으로 시작해 조건이 다르다.
+                # 처음 이 손실을 붙였을 때 iteration 0 부터 backgroundloss 가 NaN 이었고
+                # 300 iteration 만에 파라미터 193/231 이 비유한이 되어 22시간 학습이 통째로
+                # 폐기됐다. bf16 은 지수 범위가 fp32 와 같아 속도·메모리 손해 없이 해결된다.
+                with torch.autocast("cuda", dtype=torch.bfloat16):
                     loss_background = self.llama_model(
                         inputs_embeds=emb_bg, attention_mask=att_bg,
                         return_dict=True, labels=tgt_bg).loss
+                # 그래도 비유한이면 그 스텝의 배경 감독을 버린다 — 한 번의 NaN 이
+                # 전체 학습을 죽이는 것을 막는 안전장치.
+                if not torch.isfinite(loss_background):
+                    loss_background = loss
 
             return {"loss": loss, "loss_motion": loss, "loss_background": loss_background, "middle_result": middle_result, "middle_result_motion": middle_result_motion, "middle_result_background": middle_result_background}
         else:
