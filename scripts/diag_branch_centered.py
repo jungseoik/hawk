@@ -42,7 +42,9 @@ def stats(name, X, Y=None):
         N = C / (np.linalg.norm(C, axis=1, keepdims=True) + 1e-12)
         S = N @ N.T; np.fill_diagonal(S, -9)
         Y = np.array(Y)
-        acc = float((Y[S.argmax(1)] == Y).mean())
+        hit = (Y[S.argmax(1)] == Y).astype(int)
+        out["per_item"] = hit.tolist()
+        acc = float(hit.mean())
         cnt = collections.Counter(Y); n = len(Y)
         ch = float(np.mean([(cnt[y] - 1) / (n - 1) for y in Y]))
         out |= {"probe_acc": acc, "chance": ch, "ratio": acc / ch if ch else None}
@@ -60,6 +62,7 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=80)
     ap.add_argument("--gpu-id", type=int, default=0)
     ap.add_argument("--scene-only", action="store_true", help="장면 라벨이 있는 클립만")
+    ap.add_argument("--ablation", default="flow", help="정적 스트림에 넣을 내용")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     BG, MO, AP, Y = [], [], [], []
     for i, p in enumerate(vids, 1):
         try:
-            v, vm, vb = load_streams_aligned(p, n_frms=32, image_size=224, sampling="uniform", ablation="flow")
+            v, vm, vb = load_streams_aligned(p, n_frms=32, image_size=224, sampling="uniform", ablation=a.ablation)
             v, vm, vb = apply_shared_transform(chat.vis_processor.transform, (v, vm, vb))
             with torch.no_grad():
                 eb, _, _ = m.encode_videoQformer_visual(vb.unsqueeze(0).to(dev), background=True)
@@ -92,6 +95,8 @@ if __name__ == "__main__":
         if i % 20 == 0: print(f"  {i}/{len(vids)}", flush=True)
 
     Y = Y if all(Y) else None
+    print(f"  [정적 입력 = {a.ablation}]")
     res = {k: stats(k, np.array(X), Y) for k, X in
            [("배경", BG), ("움직임", MO), ("외형", AP)]}
+    res["_videos"] = [os.path.basename(v) for v in vids[:len(BG)]]
     json.dump(res, open(a.out, "w"), indent=2, ensure_ascii=False)

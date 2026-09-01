@@ -1,0 +1,131 @@
+model:
+  arch: hawk
+  model_type: pretrain_llama_v2
+  freeze_vit: True
+  freeze_qformer: True
+
+
+  # Q-Former
+  num_query_token: 32
+
+  # If you want train models based on LLaMA-2-chat,
+  # some ckpts could be download from our provided huggingface repo
+  # i.e.  https://huggingface.co/DAMO-NLP-SG/Video-LLaMA-2-13B-Finetuned
+  llama_model: "/home/work/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+  # imagebind_ckpt_path: "/remote-home/share/jiaqitang/Video-LLaMA-2-7B-Finetuned"
+
+  # The ckpt of vision branch after stage1 pretrained.
+  # CERBERUS stage-1 최종 체크포인트 (epoch 106, LR이 min_lr까지 annealing 완료).
+  # 원본 HAWK는 여기에 자기네 hawk_pretrain/checkpoint_127.pth를 넣었다.
+  ckpt: "/home/work/seoik/runs/core/main/checkpoint_106.pth"
+
+
+  # only train vision branch
+  equip_audio_branch: False  
+  frozen_llama_proj: False
+  frozen_video_Qformer: False
+  frozen_audio_Qformer: True
+  
+  fusion_head_layers: 2
+  max_frame_pos: 32
+  fusion_header_type: "seqTransf"
+
+  max_txt_len: 320
+
+  for llama_2_chat:
+  end_sym: "</s>"
+  prompt_path: "configs/prompts/alignment_image.txt"   # 레포 루트 기준 상대경로
+  prompt_template: '[INST] <<SYS>>\n \n<</SYS>>\n\n{} [/INST] '
+
+datasets:
+  webvid_instruct:
+    data_type: video
+    build_info:
+      # NOTE: `.local.json`을 쓴다. 배포본 원본 JSON의 `video` 필드는 원저자 서버의
+      # 절대경로(/remote-home/...)라서, 로더가 os.path.join(videos_dir, video)를 할 때
+      # videos_dir가 통째로 무시된다(절대경로 우선). scripts/localize_anomaly_annotations.py
+      # 가 이를 videos_dir 기준 상대경로로 변환해 `.local.json`으로 저장한다. 원본은 보존.
+      anno_dir: /home/work/seoik/hawk_anomaly/Annotation/All_Mix/all_videos_train.local.json
+      videos_dir: /home/work/seoik/hawk_anomaly/Videos/
+    vis_processor:
+      train:
+        name: "alpro_video_train"
+        n_frms: 32
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+    num_video_query_token: 32
+    tokenizer_name: "/home/work/seoik/hawk/weights/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf"
+    model_type: "llama_v2"
+    static_ablation: "duplicate"    # 정적 스트림 통제군
+    
+run:
+  task: video_text_pretrain
+  # optimizer
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 1e-5
+  min_lr: 1e-6
+  warmup_lr: 1e-6
+
+  weight_decay: 0.05
+  # max_epoch = cosine LR 스케줄의 길이지 단순 상한이 아니다 (optims.py:99). stage1과 동일 규칙.
+  #
+  # 원본 HAWK stage2 : 160 ep x 2500 it x batch 1 x 4 GPU = 1.60M 샘플 (effective batch 4)
+  # 이 서버(H100 2장): 160 ep x 2500 it x batch 2 x 2 GPU = 1.60M 샘플 (effective batch 4)
+  # → GPU가 4장에서 2장으로 줄어든 만큼 batch를 1→2로 올려 샘플 예산과 effective batch를
+  #   둘 다 원본과 일치시켰다. max_epoch은 원본 값 160 그대로 쓸 수 있다.
+  #
+  # batch를 더 키우지 않는 이유 (2026-08-10 실측, 150 iter 공정 비교):
+  #   batch 2 -> 1.369 s/it, 45.7GB, 2.92 samples/s
+  #   batch 4 -> 2.773 s/it, 56.6GB, 2.89 samples/s   (처리량 동일)
+  #   batch 6 -> 4.31  s/it, 69.0GB, 2.78 samples/s   (오히려 저하)
+  #   batch 8 -> OOM (75.9GB 할당 후 실패)
+  # batch에 비례해 iter 시간이 같이 늘어 처리량이 평평하다 = 이미 샘플당 연산 포화.
+  # VRAM을 더 써도 이득이 없으므로 여유(34GB)를 남겨 다일 학습의 OOM 위험을 줄인다.
+  # 소요 예상: epoch당 약 57분 x 160 = 약 6.3일.
+  # ── 어블레이션 감축 예산 ────────────────────────────────────────────────
+  # 주 비교(Table 1)는 원본과 동일한 1.60M 샘플(max_epoch 160)로 별도 실행하고,
+  # 통제군 비교는 여기서 40 epoch = 400k 샘플로 수행한다. 통제 논리는 "HAWK와 같은
+  # 예산"이 아니라 "arm 끼리 같은 예산"이면 성립하므로, 네 arm 이 모두 이 값을
+  # 공유하는 한 비교는 유효하다. arm 당 약 1.6일 (2x H100 실측 2.92 samples/s).
+  # 전 arm 이 동일 아키텍처·동일 파라미터 수·동일 시각 토큰 수를 쓰고, 정적 스트림에
+  # 들어가는 *내용* 만 다르다 (static_ablation 참조).
+  max_epoch: 12
+  batch_size_train: 4
+  batch_size_eval: 1
+  # 8이면 충분 — 실측 data 지연 0.0000 (NFS인데도). stage1과 동일.
+  num_workers: 4
+  warmup_steps: 1000
+  iters_per_epoch: 2500
+
+  seed: 43
+  # NOTE: scripts/train_run.sh 로 실행하면 run별로 output_dir를 덮어쓴다.
+  # 이 값은 직접 torchrun 할 때만 쓰이는 fallback (레포 안에 쓰지 않도록 절대경로).
+  output_dir: "/home/work/seoik/runs/stage2_finetune_fallback"
+
+  amp: True
+  resume_ckpt_path: null
+
+  evaluate: False 
+  train_splits: ["train"]
+
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 단일 GPU 실행용 변형 (3 GPU 환경에서 arm 을 병렬로 돌리기 위한 것)
+#
+#   batch_size_train: 2 → 4     GPU 1 장이므로 effective batch 는 4 로 동일하다
+#   num_workers:      8 → 4     컨테이너 메모리 제한(cgroup memory.max)이 병목이고,
+#                               arm 3 개를 동시에 돌리면 워커 수가 3 배가 된다
+#
+# **effective batch 와 epoch 당 샘플 수가 2 GPU × batch 2 실행과 정확히 같다.**
+#   2 GPU: 2500 iter × (2 × 2) = 10,000 샘플/epoch, effective batch 4
+#   1 GPU: 2500 iter × (4 × 1) = 10,000 샘플/epoch, effective batch 4
+# 따라서 이미 완주한 arm(zero 등)과 비교 가능하며 재실행할 필요가 없다.
+#
+# 단일 GPU batch 4 는 배치 스윕 실측에서 56.6GB 를 쓴다 — 80GB H100 에 들어간다.
+# ─────────────────────────────────────────────────────────────────────────────
